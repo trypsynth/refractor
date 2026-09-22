@@ -71,8 +71,13 @@ function Write-AppleLinkTargets([string]$libraries) {
 }
 
 function Write-IosLinkTargets([string]$libraries) {
-	# The .NET iOS build links native references itself, for Mono and Native AOT alike.
-	Write-Targets $libraries @('<NativeReference Include="$(MSBuildThisFileDirectory)libprism.a" Kind="Static" ForceLoad="true" IsCxx="true" SmartLink="false" Frameworks="Foundation AVFoundation UIKit" />')
+	# The .NET iOS build links native references itself, for Mono and Native AOT alike. It only
+	# keeps a symbol reachable at run time when told to, so every function in prism's header is
+	# named, since Refractor looks them up in the app itself.
+	$items = @('<NativeReference Include="$(MSBuildThisFileDirectory)libprism.a" Kind="Static" ForceLoad="true" IsCxx="true" SmartLink="false" Frameworks="Foundation AVFoundation UIKit" />')
+	$functions = Select-String -CaseSensitive -Path (Join-Path $source "include/prism.h") -Pattern "\b(prism_[a-z_]+)\(" -AllMatches | ForEach-Object { $_.Matches } | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+	foreach ($function in $functions) { $items += "<ReferenceNativeSymbol Include=`"$function`" SymbolType=`"Function`" />" }
+	Write-Targets $libraries $items
 }
 
 function Invoke-Checked([string]$description) {
