@@ -9,6 +9,12 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path $PSScriptRoot -Parent
 $source = Join-Path $root "native/prism"
 $architectures = @{ "win-x64" = "x64"; "win-arm64" = "ARM64"; "win-x86" = "Win32" }
+# CMake falls back to Ninja on some setups, which cannot take -A, so the newest Visual Studio with
+# the C++ tools is looked up and named explicitly.
+$vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio/Installer/vswhere.exe"
+$studio = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -format json | ConvertFrom-Json | Select-Object -First 1
+if (-not $studio) { throw "No Visual Studio with the C++ tools was found." }
+$generator = "Visual Studio $($studio.installationVersion.Split('.')[0]) $($studio.catalog.productLineVersion)"
 
 function Write-LinkTargets([string]$libraries) {
 	# prism's install step lists every import library its Windows backends need, with the DLL
@@ -30,7 +36,7 @@ foreach ($runtime in $Runtimes) {
 		$build = Join-Path $root "artifacts/native-build/$runtime/$kind"
 		$install = Join-Path $root "artifacts/native/$runtime/$kind"
 		$shared = if ($kind -eq "shared") { "ON" } else { "OFF" }
-		cmake -S $source -B $build -A $architecture "-DBUILD_SHARED_LIBS=$shared" "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded" "-DCMAKE_INSTALL_PREFIX=$install"
+		cmake -S $source -B $build -G $generator -A $architecture "-DBUILD_SHARED_LIBS=$shared" "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded" "-DCMAKE_INSTALL_PREFIX=$install"
 		if ($LASTEXITCODE -ne 0) { throw "Configuring prism ($runtime, $kind) failed." }
 		cmake --build $build --config $Configuration --parallel
 		if ($LASTEXITCODE -ne 0) { throw "Building prism ($runtime, $kind) failed." }
