@@ -13,7 +13,9 @@ public static unsafe partial class PrismNative {
 	public const string PluginEntryPoint = "prism_plugin_query";
 
 	// An iOS app has prism linked into its own executable, since it cannot load a library of its own.
-	static PrismNative() {
+	[ModuleInitializer]
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2255", Justification = "Mono looks prism up while compiling the first caller, before a static constructor here would run.")]
+	internal static void RegisterResolver() {
 		if (OperatingSystem.IsIOS()) NativeLibrary.SetDllImportResolver(typeof(PrismNative).Assembly, ResolveFromApp);
 	}
 
