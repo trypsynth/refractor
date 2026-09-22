@@ -7,16 +7,18 @@ on:
   pull_request:
 
 jobs:
+  # MSVC links libraries from an older toolset but not a newer one, so prism is built with the
+  # oldest Visual Studio a consumer is likely to publish with.
   native:
     strategy:
       matrix:
         include:
           - runtime: win-x64
-            os: windows-latest
+            os: windows-2022
           - runtime: win-arm64
-            os: windows-latest
+            os: windows-2022
           - runtime: win-x86
-            os: windows-latest
+            os: windows-2022
           - runtime: osx-arm64
             os: macos-latest
           - runtime: osx-x64
@@ -37,7 +39,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: artifacts/native/${{ matrix.runtime }}
-          key: prism-${{ matrix.runtime }}-${{ steps.prism.outputs.commit }}-${{ hashFiles('scripts/build-native.ps1') }}
+          key: prism-${{ matrix.os }}-${{ matrix.runtime }}-${{ steps.prism.outputs.commit }}-${{ hashFiles('scripts/build-native.ps1') }}
 
       - name: Build prism
         if: steps.prism-cache.outputs.cache-hit != 'true'
