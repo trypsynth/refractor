@@ -30,7 +30,7 @@ foreach ($runtime in $Runtimes) {
 		$build = Join-Path $root "artifacts/native-build/$runtime/$kind"
 		$install = Join-Path $root "artifacts/native/$runtime/$kind"
 		$shared = if ($kind -eq "shared") { "ON" } else { "OFF" }
-		cmake -S $source -B $build -G "Visual Studio 17 2022" -A $architecture "-DBUILD_SHARED_LIBS=$shared" "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded" "-DCMAKE_INSTALL_PREFIX=$install"
+		cmake -S $source -B $build -A $architecture "-DBUILD_SHARED_LIBS=$shared" "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded" "-DCMAKE_INSTALL_PREFIX=$install"
 		if ($LASTEXITCODE -ne 0) { throw "Configuring prism ($runtime, $kind) failed." }
 		cmake --build $build --config $Configuration --parallel
 		if ($LASTEXITCODE -ne 0) { throw "Building prism ($runtime, $kind) failed." }
