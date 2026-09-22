@@ -1,0 +1,11 @@
+<Solution>
+	<Folder Name="/src/">
+		<Project Path="src/Refractor/Refractor.csproj" />
+	</Folder>
+	<Folder Name="/tests/">
+		<Project Path="tests/Refractor.Tests/Refractor.Tests.csproj" />
+	</Folder>
+	<Folder Name="/samples/">
+		<Project Path="samples/Speak/Speak.csproj" />
+	</Folder>
+</Solution>

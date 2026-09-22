@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<RootNamespace>Refractor</RootNamespace>
+		<IsAotCompatible>true</IsAotCompatible>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<NoWarn>$(NoWarn);CS1591</NoWarn>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<PackageId>Refractor</PackageId>
+		<Description>Speech, braille and screen reader output for .NET through prism: NVDA, JAWS, SAPI, OneCore, ZoomText and more behind one API. Links statically into Native AOT executables.</Description>
+		<PackageTags>accessibility;screen-reader;tts;speech;braille;nvda;jaws;sapi;prism;native-aot</PackageTags>
+		<PackageLicenseExpression>MIT AND MPL-2.0 AND Apache-2.0 AND BSD-2-Clause</PackageLicenseExpression>
+		<PackageProjectUrl>https://github.com/trypsynth/refractor</PackageProjectUrl>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<RefractorPackRuntimes>win-x64</RefractorPackRuntimes>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<None Include="../../README.md;../../LICENSE;../../THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="/" />
+		<None Include="../../native/prism/LICENSES/**/*" Pack="true" PackagePath="licenses/prism/%(RecursiveDir)" />
+		<None Include="build/Refractor.targets" Pack="true" PackagePath="buildTransitive/" />
+	</ItemGroup>
+
+	<Target Name="_RefractorPackNative" BeforeTargets="_GetPackageFiles">
+		<ItemGroup>
+			<_RefractorPackRuntime Include="$(RefractorPackRuntimes)" />
+			<_RefractorMissing Include="@(_RefractorPackRuntime)" Condition="!Exists('$(RefractorNativeRoot)/%(Identity)/static/lib/Refractor.Native.targets') or !Exists('$(RefractorNativeRoot)/%(Identity)/shared/bin/prism.dll')" />
+		</ItemGroup>
+		<Error Condition="'@(_RefractorMissing)' != ''" Text="prism is not built for @(_RefractorMissing). Run scripts/build-native.ps1 first." />
+		<ItemGroup>
+			<None Include="$(RefractorNativeRoot)/%(_RefractorPackRuntime.Identity)/shared/bin/prism.dll" Pack="true" PackagePath="runtimes/%(_RefractorPackRuntime.Identity)/native/" />
+			<None Include="$(RefractorNativeRoot)/%(_RefractorPackRuntime.Identity)/static/lib/*.lib;$(RefractorNativeRoot)/%(_RefractorPackRuntime.Identity)/static/lib/Refractor.Native.targets" Pack="true" PackagePath="native/%(_RefractorPackRuntime.Identity)/" />
+		</ItemGroup>
+	</Target>
+
+</Project>

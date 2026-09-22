@@ -1,0 +1,23 @@
+<Project>
+
+	<PropertyGroup>
+		<LangVersion>latest</LangVersion>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+		<AnalysisLevel>latest</AnalysisLevel>
+		<ArtifactsRoot>$(MSBuildThisFileDirectory)artifacts</ArtifactsRoot>
+		<RefractorNativeRoot>$(ArtifactsRoot)/native</RefractorNativeRoot>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<Version>0.1.0</Version>
+		<Authors>Quin Gillespie</Authors>
+		<Copyright>Copyright (c) Quin Gillespie</Copyright>
+		<NeutralLanguage>en-US</NeutralLanguage>
+		<RepositoryUrl>https://github.com/trypsynth/refractor</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+	</PropertyGroup>
+
+</Project>

@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+    tags: ["v*"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Find the prism commit
+        id: prism
+        shell: pwsh
+        run: echo "commit=$(git -C native/prism rev-parse HEAD)" >> $env:GITHUB_OUTPUT
+
+      - name: Cache prism
+        id: prism-cache
+        uses: actions/cache@v4
+        with:
+          path: artifacts/native
+          key: prism-${{ runner.os }}-${{ steps.prism.outputs.commit }}-${{ hashFiles('scripts/build-native.ps1') }}
+
+      - name: Build prism
+        if: steps.prism-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: ./scripts/build-native.ps1
+
+      - name: Test
+        run: dotnet test tests/Refractor.Tests -c Release
+
+      - name: Pack
+        run: dotnet pack src/Refractor -c Release -o artifacts/packages
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: artifacts/packages
+
+      - name: Publish to NuGet
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: dotnet nuget push "artifacts/packages/*.nupkg" --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
