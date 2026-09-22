@@ -1,6 +1,6 @@
 <Project>
 
-	<!-- Native AOT links prism into the executable, so nothing ships beside it. Everything else loads prism.dll from the package's runtimes folder. -->
+	<!-- Native AOT links prism into the executable, so nothing ships beside it. Everything else loads the shared prism from the package's runtimes folder. -->
 	<PropertyGroup>
 		<RefractorStaticLink Condition="'$(RefractorStaticLink)' == '' and '$(PublishAot)' == 'true'">true</RefractorStaticLink>
 		<RefractorNativeDirectory Condition="'$(RefractorNativeDirectory)' == ''">$(MSBuildThisFileDirectory)../native/$(RuntimeIdentifier)/</RefractorNativeDirectory>
@@ -9,21 +9,17 @@
 
 	<ItemGroup Condition="'$(RefractorStaticLink)' == 'true'">
 		<DirectPInvoke Include="prism" />
-		<!-- What prism's Windows backends import. A static prism leaves them to the final link. -->
-		<NativeLibrary Include="ole32.lib;onecore.lib;runtimeobject.lib;uiautomationcore.lib;rpcrt4.lib;powrprof.lib;delayimp.lib" />
-		<!-- The Orca and Speech Dispatcher bridges are Linux only, so their delay loads find nothing to defer. -->
-		<LinkerArg Include="/IGNORE:4199" />
 	</ItemGroup>
 
 	<Import Project="$(_RefractorLinkTargets)" Condition="'$(RefractorStaticLink)' == 'true' and Exists('$(_RefractorLinkTargets)')" />
 
 	<Target Name="_RefractorCheckStaticLink" BeforeTargets="PrepareForPublish" Condition="'$(RefractorStaticLink)' == 'true' and !Exists('$(_RefractorLinkTargets)')">
-		<Error Text="Refractor has no static prism for '$(RuntimeIdentifier)'. Set RefractorStaticLink to false to ship prism.dll beside the executable instead." />
+		<Error Text="Refractor has no static prism for '$(RuntimeIdentifier)'. Set RefractorStaticLink to false to ship the shared prism beside the executable instead." />
 	</Target>
 
 	<Target Name="_RefractorDropSharedLibrary" AfterTargets="ComputeResolvedFilesToPublishList" Condition="'$(RefractorStaticLink)' == 'true'">
 		<ItemGroup>
-			<ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Filename)%(Extension)' == 'prism.dll'" />
+			<ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Filename)%(Extension)' == 'prism.dll' or '%(Filename)%(Extension)' == 'libprism.dylib' or '%(Filename)%(Extension)' == 'libprism.so'" />
 		</ItemGroup>
 	</Target>
 

@@ -10,8 +10,18 @@ jobs:
   native:
     strategy:
       matrix:
-        runtime: [win-x64, win-arm64, win-x86]
-    runs-on: windows-latest
+        include:
+          - runtime: win-x64
+            os: windows-latest
+          - runtime: win-arm64
+            os: windows-latest
+          - runtime: win-x86
+            os: windows-latest
+          - runtime: osx-arm64
+            os: macos-latest
+          - runtime: osx-x64
+            os: macos-15-intel
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -48,12 +58,23 @@ jobs:
           - runtime: win-x64
             arch: x64
             os: windows-latest
+            backend: SAPI
           - runtime: win-arm64
             arch: arm64
             os: windows-11-arm
+            backend: SAPI
           - runtime: win-x86
             arch: x86
             os: windows-latest
+            backend: SAPI
+          - runtime: osx-arm64
+            arch: arm64
+            os: macos-latest
+            backend: AVSpeech
+          - runtime: osx-x64
+            arch: x64
+            os: macos-15-intel
+            backend: AVSpeech
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -64,13 +85,14 @@ jobs:
             8.0.x
             10.0.x
 
-      # The 64 bit SDK runs 32 bit tests through the x86 runtime in its standard location.
+      # The 64 bit SDK runs 32 bit tests through the x86 runtime, which it finds through DOTNET_ROOT_X86.
       - name: Install the x86 runtime
         if: matrix.arch == 'x86'
         shell: pwsh
         run: |
           Invoke-WebRequest https://dot.net/v1/dotnet-install.ps1 -OutFile dotnet-install.ps1
           ./dotnet-install.ps1 -Channel 10.0 -Runtime dotnet -Architecture x86 -InstallDir "${env:ProgramFiles(x86)}\dotnet"
+          echo "DOTNET_ROOT_X86=${env:ProgramFiles(x86)}\dotnet" >> $env:GITHUB_ENV
 
       - uses: actions/download-artifact@v4
         with:
@@ -78,7 +100,25 @@ jobs:
           path: artifacts/native/${{ matrix.runtime }}
 
       - name: Test
-        run: dotnet test tests/Refractor.Tests -c Release --arch ${{ matrix.arch }} -p:RefractorTestRuntime=${{ matrix.runtime }}
+        run: dotnet test tests/Refractor.Tests -c Release --arch ${{ matrix.arch }} -p:RefractorTestRuntime=${{ matrix.runtime }} --blame-crash --logger "console;verbosity=normal"
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-results-${{ matrix.runtime }}
+          path: tests/Refractor.Tests/TestResults
+
+      # Publishing the sample statically proves the link works, and listing a backend proves the
+      # backends survived it.
+      - name: Publish with Native AOT
+        shell: pwsh
+        run: |
+          dotnet publish samples/Speak -c Release -r ${{ matrix.runtime }} -o artifacts/sample
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $sample = Join-Path artifacts/sample ($IsWindows ? "Speak.exe" : "Speak")
+          $output = & $sample --list
+          $output
+          if (-not ($output -match "${{ matrix.backend }}")) { throw "${{ matrix.backend }} is missing from the statically linked prism." }
 
   package:
     needs: test
@@ -99,18 +139,17 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: native-win-x64
-          path: artifacts/native/win-x64
+          pattern: native-*
+          path: artifacts/downloads
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: native-win-arm64
-          path: artifacts/native/win-arm64
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: native-win-x86
-          path: artifacts/native/win-x86
+      - name: Arrange prism
+        shell: pwsh
+        run: |
+          foreach ($artifact in Get-ChildItem artifacts/downloads -Directory) {
+            $runtime = $artifact.Name -replace '^native-', ''
+            New-Item -ItemType Directory -Force artifacts/native | Out-Null
+            Move-Item $artifact.FullName "artifacts/native/$runtime"
+          }
 
       - name: Pack
         run: dotnet pack src/Refractor -c Release -o artifacts/packages

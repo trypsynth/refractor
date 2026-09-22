@@ -18,7 +18,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<None Include="$(RefractorNativeRoot)/$(RefractorTestRuntime)/shared/bin/prism.dll" Link="prism.dll" CopyToOutputDirectory="PreserveNewest" />
+		<None Include="$(RefractorNativeRoot)/$(RefractorTestRuntime)/shared/bin/*.dll;$(RefractorNativeRoot)/$(RefractorTestRuntime)/shared/lib/*.dylib" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
 
 	<ItemGroup>

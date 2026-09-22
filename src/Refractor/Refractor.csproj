@@ -17,7 +17,7 @@
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<IncludeSymbols>true</IncludeSymbols>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
-		<RefractorPackRuntimes>win-x64;win-arm64;win-x86</RefractorPackRuntimes>
+		<RefractorPackRuntimes>win-x64;win-arm64;win-x86;osx-arm64;osx-x64</RefractorPackRuntimes>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -29,12 +29,12 @@
 	<Target Name="_RefractorPackNative" BeforeTargets="_GetPackageFiles">
 		<ItemGroup>
 			<_RefractorPackRuntime Include="$(RefractorPackRuntimes)" />
-			<_RefractorMissing Include="@(_RefractorPackRuntime)" Condition="!Exists('$(RefractorNativeRoot)/%(Identity)/static/lib/Refractor.Native.targets') or !Exists('$(RefractorNativeRoot)/%(Identity)/shared/bin/prism.dll')" />
+			<_RefractorMissing Include="@(_RefractorPackRuntime)" Condition="!Exists('$(RefractorNativeRoot)/%(Identity)/static/lib/Refractor.Native.targets') or (!Exists('$(RefractorNativeRoot)/%(Identity)/shared/bin/prism.dll') and !Exists('$(RefractorNativeRoot)/%(Identity)/shared/lib/libprism.dylib'))" />
 		</ItemGroup>
 		<Error Condition="'@(_RefractorMissing)' != ''" Text="prism is not built for @(_RefractorMissing). Run scripts/build-native.ps1 first." />
 		<ItemGroup>
-			<None Include="$(RefractorNativeRoot)/%(_RefractorPackRuntime.Identity)/shared/bin/prism.dll" Pack="true" PackagePath="runtimes/%(_RefractorPackRuntime.Identity)/native/" />
-			<None Include="$(RefractorNativeRoot)/%(_RefractorPackRuntime.Identity)/static/lib/*.lib;$(RefractorNativeRoot)/%(_RefractorPackRuntime.Identity)/static/lib/Refractor.Native.targets" Pack="true" PackagePath="native/%(_RefractorPackRuntime.Identity)/" />
+			<None Include="$(RefractorNativeRoot)/%(_RefractorPackRuntime.Identity)/shared/bin/*.dll;$(RefractorNativeRoot)/%(_RefractorPackRuntime.Identity)/shared/lib/*.dylib" Pack="true" PackagePath="runtimes/%(_RefractorPackRuntime.Identity)/native/" />
+			<None Include="$(RefractorNativeRoot)/%(_RefractorPackRuntime.Identity)/static/lib/*.lib;$(RefractorNativeRoot)/%(_RefractorPackRuntime.Identity)/static/lib/*.a;$(RefractorNativeRoot)/%(_RefractorPackRuntime.Identity)/static/lib/Refractor.Native.targets" Pack="true" PackagePath="native/%(_RefractorPackRuntime.Identity)/" />
 		</ItemGroup>
 	</Target>
 

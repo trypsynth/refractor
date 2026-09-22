@@ -17,7 +17,7 @@
 	<Import Project="..\..\src\Refractor\build\Refractor.targets" />
 
 	<ItemGroup>
-		<None Include="$(RefractorNativeRoot)/$(RuntimeIdentifier)/shared/bin/prism.dll" Link="prism.dll" CopyToOutputDirectory="PreserveNewest" />
+		<None Include="$(RefractorNativeRoot)/$(RuntimeIdentifier)/shared/bin/*.dll;$(RefractorNativeRoot)/$(RuntimeIdentifier)/shared/lib/*.dylib" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
 
 </Project>
