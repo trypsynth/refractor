@@ -55,6 +55,40 @@ jobs:
           name: native-${{ matrix.runtime }}
           path: artifacts/native/${{ matrix.runtime }}
 
+  static-registration:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: lukka/get-cmake@latest
+
+      - name: Install Speech Dispatcher
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libspeechd-dev
+
+      - name: Build prism statically
+        run: |
+          cmake -S native/prism -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX="$PWD/install"
+          cmake --build build --parallel
+          cmake --install build
+
+      - name: Link without loading the archive whole
+        run: |
+          cc -c scripts/verify/count.c -I install/include -o count.o
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            c++ count.o install/lib/libprism.a $(pkg-config --libs speech-dispatcher) -ldl -lpthread -o count
+          else
+            c++ count.o install/lib/libprism.a -framework Foundation -framework AVFoundation -framework AppKit -framework IOKit -framework CoreFoundation -o count
+          fi
+          ./count | tee out.txt
+          grep -q "registered backends: [1-9]" out.txt
+
   test:
     needs: native
     strategy:
