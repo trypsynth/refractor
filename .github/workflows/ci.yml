@@ -82,7 +82,7 @@ jobs:
         run: |
           cc -c scripts/verify/count.c -I install/include -o count.o
           if [ "$RUNNER_OS" = "Linux" ]; then
-            c++ count.o install/lib/libprism.a $(pkg-config --libs speech-dispatcher) -ldl -lpthread -o count
+            c++ count.o install/lib/libprism.a $(pkg-config --libs gio-2.0) -ldl -lpthread -o count
           else
             c++ count.o install/lib/libprism.a -framework Foundation -framework AVFoundation -framework AppKit -framework IOKit -framework CoreFoundation -o count
           fi
