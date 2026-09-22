@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net10.0-ios</TargetFramework>
+		<OutputType>Exe</OutputType>
+		<SupportedOSPlatformVersion>14.0</SupportedOSPlatformVersion>
+		<ApplicationId>com.trypsynth.refractor.speak</ApplicationId>
+		<ApplicationTitle>Refractor</ApplicationTitle>
+		<ApplicationVersion>1</ApplicationVersion>
+		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+		<IsPackable>false</IsPackable>
+		<RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">iossimulator-arm64</RuntimeIdentifier>
+		<RefractorNativeDirectory>$(RefractorNativeRoot)/$(RuntimeIdentifier)/static/lib/</RefractorNativeDirectory>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\src\Refractor\Refractor.csproj" />
+	</ItemGroup>
+
+	<!-- A package reference brings these in on its own. A project reference has to ask. -->
+	<Import Project="..\..\src\Refractor\build\Refractor.targets" />
+
+</Project>

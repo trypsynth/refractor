@@ -17,7 +17,7 @@
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<IncludeSymbols>true</IncludeSymbols>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
-		<RefractorPackRuntimes>win-x64;win-arm64;win-x86;osx-arm64;osx-x64</RefractorPackRuntimes>
+		<RefractorPackRuntimes>win-x64;win-arm64;win-x86;osx-arm64;osx-x64;ios-arm64;iossimulator-arm64;iossimulator-x64</RefractorPackRuntimes>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -29,7 +29,7 @@
 	<Target Name="_RefractorPackNative" BeforeTargets="_GetPackageFiles">
 		<ItemGroup>
 			<_RefractorPackRuntime Include="$(RefractorPackRuntimes)" />
-			<_RefractorMissing Include="@(_RefractorPackRuntime)" Condition="!Exists('$(RefractorNativeRoot)/%(Identity)/static/lib/Refractor.Native.targets') or (!Exists('$(RefractorNativeRoot)/%(Identity)/shared/bin/prism.dll') and !Exists('$(RefractorNativeRoot)/%(Identity)/shared/lib/libprism.dylib'))" />
+			<_RefractorMissing Include="@(_RefractorPackRuntime)" Condition="!Exists('$(RefractorNativeRoot)/%(Identity)/static/lib/Refractor.Native.targets') or (!Exists('$(RefractorNativeRoot)/%(Identity)/shared/bin/prism.dll') and !Exists('$(RefractorNativeRoot)/%(Identity)/shared/lib/libprism.dylib') and !$([System.String]::Copy('%(Identity)').StartsWith('ios')))" />
 		</ItemGroup>
 		<Error Condition="'@(_RefractorMissing)' != ''" Text="prism is not built for @(_RefractorMissing). Run scripts/build-native.ps1 first." />
 		<ItemGroup>

@@ -12,6 +12,13 @@ public static unsafe partial class PrismNative {
 	public const ulong FeatureMaxBit = 1UL << 63;
 	public const string PluginEntryPoint = "prism_plugin_query";
 
+	// An iOS app has prism linked into its own executable, since it cannot load a library of its own.
+	[ModuleInitializer]
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2255", Justification = "Mono looks prism up while compiling the first caller, before a static constructor here would run.")]
+	internal static void RegisterResolver() {
+		if (OperatingSystem.IsIOS()) NativeLibrary.SetDllImportResolver(typeof(PrismNative).Assembly, ResolveFromApp);
+	}
+
 	[LibraryImport(Library, EntryPoint = "prism_config_init")]
 	[UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
 	public static partial PrismConfig ConfigInit();
@@ -249,4 +256,8 @@ public static unsafe partial class PrismNative {
 	[LibraryImport(Library, EntryPoint = "prism_version_string")]
 	[UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
 	public static partial byte* VersionString();
+
+	// Mono only accepts a handle it loaded itself, which rules out GetMainProgramHandle's pseudo handle.
+	private static nint ResolveFromApp(string name, System.Reflection.Assembly assembly, DllImportSearchPath? searchPath) =>
+		name == Library ? NativeLibrary.Load(Environment.ProcessPath!) : 0;
 }

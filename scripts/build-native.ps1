@@ -1,5 +1,6 @@
 # Builds prism twice per runtime: a static library for Native AOT to link into the executable,
-# and a shared library for everything else. Each static build also gets a Refractor.Native.targets
+# and a shared library for everything else. iOS only gets the static library, since an app there
+# cannot load a library of its own at run time. Each static build also gets a Refractor.Native.targets
 # holding everything the final link needs, so the package's own targets stay platform neutral.
 param(
 	[string[]]$Runtimes = @("win-x64"),
@@ -12,6 +13,13 @@ $windowsArchitectures = @{ "win-x64" = "x64"; "win-arm64" = "ARM64"; "win-x86" =
 $appleArchitectures = @{ "osx-arm64" = "arm64"; "osx-x64" = "x86_64" }
 # The oldest macOS that .NET 8, the package's lowest target, runs on.
 $appleDeploymentTarget = "12.0"
+$iosTargets = @{
+	"ios-arm64" = @{ Sysroot = "iphoneos"; Architecture = "arm64" }
+	"iossimulator-arm64" = @{ Sysroot = "iphonesimulator"; Architecture = "arm64" }
+	"iossimulator-x64" = @{ Sysroot = "iphonesimulator"; Architecture = "x86_64" }
+}
+# prism's own iOS builds target this release.
+$iosDeploymentTarget = "14.0"
 
 function Get-WindowsToolchain {
 	# CMake falls back to Ninja on some setups, which cannot take -A, so the newest Visual Studio
@@ -62,13 +70,24 @@ function Write-AppleLinkTargets([string]$libraries) {
 	Write-Targets $libraries $items
 }
 
+function Write-IosLinkTargets([string]$libraries) {
+	# The .NET iOS build links native references itself, for Mono and Native AOT alike. It only
+	# keeps a symbol reachable at run time when told to, so every function in prism's header is
+	# named, since Refractor looks them up in the app itself.
+	$items = @('<NativeReference Include="$(MSBuildThisFileDirectory)libprism.a" Kind="Static" ForceLoad="true" IsCxx="true" SmartLink="false" Frameworks="Foundation AVFoundation UIKit" />')
+	$functions = Select-String -CaseSensitive -Path (Join-Path $source "include/prism.h") -Pattern "\b(prism_[a-z_]+)\(" -AllMatches | ForEach-Object { $_.Matches } | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+	foreach ($function in $functions) { $items += "<ReferenceNativeSymbol Include=`"$function`" SymbolType=`"Function`" />" }
+	Write-Targets $libraries $items
+}
+
 function Invoke-Checked([string]$description) {
 	if ($LASTEXITCODE -ne 0) { throw "$description failed." }
 }
 
 $windows = $null
 foreach ($runtime in $Runtimes) {
-	foreach ($kind in "static", "shared") {
+	$kinds = if ($iosTargets.ContainsKey($runtime)) { @("static") } else { @("static", "shared") }
+	foreach ($kind in $kinds) {
 		$build = Join-Path $root "artifacts/native-build/$runtime/$kind"
 		$install = Join-Path $root "artifacts/native/$runtime/$kind"
 		$shared = if ($kind -eq "shared") { "ON" } else { "OFF" }
@@ -78,6 +97,9 @@ foreach ($runtime in $Runtimes) {
 			# The static C runtime is what Native AOT links, so the static objects agree with it and
 			# the DLL needs no redistributable.
 			$arguments += @("-G", $windows.Generator, "-A", $windowsArchitectures[$runtime], "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded", "-DPRISM_LIB_TOOL=$($windows.Librarian)")
+		} elseif ($iosTargets.ContainsKey($runtime)) {
+			$target = $iosTargets[$runtime]
+			$arguments += @("-G", "Unix Makefiles", "-DCMAKE_BUILD_TYPE=$Configuration", "-DCMAKE_SYSTEM_NAME=iOS", "-DCMAKE_OSX_SYSROOT=$($target.Sysroot)", "-DCMAKE_OSX_ARCHITECTURES=$($target.Architecture)", "-DCMAKE_OSX_DEPLOYMENT_TARGET=$iosDeploymentTarget", "-DPRISM_ENABLE_TESTS=OFF", "-DPRISM_ENABLE_DEMOS=OFF", "-DPRISM_ENABLE_GDEXTENSION=OFF")
 		} elseif ($appleArchitectures.ContainsKey($runtime)) {
 			$arguments += @("-G", "Unix Makefiles", "-DCMAKE_BUILD_TYPE=$Configuration", "-DCMAKE_OSX_ARCHITECTURES=$($appleArchitectures[$runtime])", "-DCMAKE_OSX_DEPLOYMENT_TARGET=$appleDeploymentTarget")
 		} else {
@@ -91,6 +113,8 @@ foreach ($runtime in $Runtimes) {
 		Invoke-Checked "Installing prism ($runtime, $kind)"
 		if ($kind -ne "static") { continue }
 		$libraries = Join-Path $install "lib"
-		if ($windowsArchitectures.ContainsKey($runtime)) { Write-WindowsLinkTargets $libraries } else { Write-AppleLinkTargets $libraries }
+		if ($windowsArchitectures.ContainsKey($runtime)) { Write-WindowsLinkTargets $libraries }
+		elseif ($iosTargets.ContainsKey($runtime)) { Write-IosLinkTargets $libraries }
+		else { Write-AppleLinkTargets $libraries }
 	}
 }
