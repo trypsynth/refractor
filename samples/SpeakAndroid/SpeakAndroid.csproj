@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net10.0-android</TargetFramework>
+		<OutputType>Exe</OutputType>
+		<SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
+		<ApplicationId>com.trypsynth.refractor.speak</ApplicationId>
+		<ApplicationTitle>Refractor</ApplicationTitle>
+		<ApplicationVersion>1</ApplicationVersion>
+		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+		<!-- prism builds these two ABIs only. -->
+		<RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
+		<IsPackable>false</IsPackable>
+		<RefractorAndroidLibrary>$(RefractorNativeRoot)/android/prism.aar</RefractorAndroidLibrary>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\src\Refractor\Refractor.csproj" />
+	</ItemGroup>
+
+	<!-- A package reference brings these in on its own. A project reference has to ask. -->
+	<Import Project="..\..\src\Refractor\build\Refractor.targets" />
+
+</Project>

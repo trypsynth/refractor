@@ -13,6 +13,15 @@
 		<DirectPInvoke Include="prism" />
 	</ItemGroup>
 
+	<PropertyGroup>
+		<RefractorAndroidLibrary Condition="'$(RefractorAndroidLibrary)' == ''">$(MSBuildThisFileDirectory)../native/android/prism.aar</RefractorAndroidLibrary>
+	</PropertyGroup>
+
+	<!-- The AAR brings libprism.so, the Java half of the Android backends, and the manifest entry that loads prism when the app starts. -->
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+		<AndroidLibrary Include="$(RefractorAndroidLibrary)" Bind="false" />
+	</ItemGroup>
+
 	<Import Project="$(_RefractorLinkTargets)" Condition="'$(RefractorStaticLink)' == 'true' and Exists('$(_RefractorLinkTargets)')" />
 
 	<Target Name="_RefractorCheckStaticLink" BeforeTargets="PrepareForPublish" Condition="'$(RefractorStaticLink)' == 'true' and !Exists('$(_RefractorLinkTargets)')">

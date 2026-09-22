@@ -29,6 +29,8 @@ jobs:
             os: macos-26
           - runtime: iossimulator-x64
             os: macos-26
+          - runtime: android
+            os: ubuntu-latest
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -50,6 +52,13 @@ jobs:
       # prism asks for C23, which older CMake cannot map to an MSVC flag.
       - uses: lukka/get-cmake@latest
         if: steps.prism-cache.outputs.cache-hit != 'true'
+
+      # prism's Gradle build asks for a Java 25 toolchain.
+      - uses: actions/setup-java@v4
+        if: matrix.runtime == 'android' && steps.prism-cache.outputs.cache-hit != 'true'
+        with:
+          distribution: temurin
+          java-version: 25
 
       - name: Build prism
         if: steps.prism-cache.outputs.cache-hit != 'true'
@@ -303,8 +312,50 @@ jobs:
           grep -q "REFRACTOR backend AVSpeech" ios.log
           grep -q "REFRACTOR spoke" ios.log
 
+  android:
+    needs: native
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: microsoft
+          java-version: 21
+
+      - name: Install the Android workload
+        run: dotnet workload install android
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-android
+          path: artifacts/native/android
+
+      - name: Build
+        run: dotnet build samples/SpeakAndroid -c Release -r android-x64
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run in the emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          script: sh samples/SpeakAndroid/run-on-emulator.sh
+
   package:
-    needs: [test, ios]
+    needs: [test, ios, android]
     runs-on: windows-latest
     permissions:
       contents: read

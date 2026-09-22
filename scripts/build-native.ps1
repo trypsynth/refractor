@@ -1,7 +1,8 @@
 # Builds prism twice per runtime: a static library for Native AOT to link into the executable,
 # and a shared library for everything else. iOS only gets the static library, since an app there
-# cannot load a library of its own at run time. Each static build also gets a Refractor.Native.targets
-# holding everything the final link needs, so the package's own targets stay platform neutral.
+# cannot load a library of its own at run time. Android gets prism's AAR in place of both. Each
+# static build also gets a Refractor.Native.targets holding everything the final link needs, so the
+# package's own targets stay platform neutral.
 param(
 	[string[]]$Runtimes = @("win-x64"),
 	[string]$Configuration = "Release"
@@ -84,8 +85,27 @@ function Invoke-Checked([string]$description) {
 	if ($LASTEXITCODE -ne 0) { throw "$description failed." }
 }
 
+function Build-Android {
+	# The AAR carries both ABIs, the Java half of the backends and the manifest entry that starts them.
+	Push-Location $source
+	try {
+		if (-not $IsWindows) { chmod +x gradlew }
+		& ./gradlew --no-daemon assembleRelease
+		Invoke-Checked "Building prism (android)"
+	} finally {
+		Pop-Location
+	}
+	$install = Join-Path $root "artifacts/native/android"
+	New-Item -ItemType Directory -Force $install | Out-Null
+	Copy-Item (Join-Path $source "build/android/gradle/outputs/aar/prism-release.aar") (Join-Path $install "prism.aar")
+}
+
 $windows = $null
 foreach ($runtime in $Runtimes) {
+	if ($runtime -eq "android") {
+		Build-Android
+		continue
+	}
 	$kinds = if ($iosTargets.ContainsKey($runtime)) { @("static") } else { @("static", "shared") }
 	foreach ($kind in $kinds) {
 		$build = Join-Path $root "artifacts/native-build/$runtime/$kind"

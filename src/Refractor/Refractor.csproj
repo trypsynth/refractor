@@ -30,11 +30,13 @@
 		<ItemGroup>
 			<_RefractorPackRuntime Include="$(RefractorPackRuntimes)" />
 			<_RefractorMissing Include="@(_RefractorPackRuntime)" Condition="!Exists('$(RefractorNativeRoot)/%(Identity)/static/lib/Refractor.Native.targets') or (!Exists('$(RefractorNativeRoot)/%(Identity)/shared/bin/prism.dll') and !Exists('$(RefractorNativeRoot)/%(Identity)/shared/lib/libprism.dylib') and !$([System.String]::Copy('%(Identity)').StartsWith('ios')))" />
+			<_RefractorMissing Include="android" Condition="!Exists('$(RefractorNativeRoot)/android/prism.aar')" />
 		</ItemGroup>
 		<Error Condition="'@(_RefractorMissing)' != ''" Text="prism is not built for @(_RefractorMissing). Run scripts/build-native.ps1 first." />
 		<ItemGroup>
 			<None Include="$(RefractorNativeRoot)/%(_RefractorPackRuntime.Identity)/shared/bin/*.dll;$(RefractorNativeRoot)/%(_RefractorPackRuntime.Identity)/shared/lib/*.dylib" Pack="true" PackagePath="runtimes/%(_RefractorPackRuntime.Identity)/native/" />
 			<None Include="$(RefractorNativeRoot)/%(_RefractorPackRuntime.Identity)/static/lib/*.lib;$(RefractorNativeRoot)/%(_RefractorPackRuntime.Identity)/static/lib/*.a;$(RefractorNativeRoot)/%(_RefractorPackRuntime.Identity)/static/lib/Refractor.Native.targets" Pack="true" PackagePath="native/%(_RefractorPackRuntime.Identity)/" />
+			<None Include="$(RefractorNativeRoot)/android/prism.aar" Pack="true" PackagePath="native/android/" />
 		</ItemGroup>
 	</Target>
 
