@@ -10,7 +10,7 @@ public class CustomBackendTests {
 		Assert.Equal(harness.Id, harness.Prism.FindBackend(Name));
 		Assert.Equal(Name, harness.Prism.GetBackendName(harness.Id));
 		Assert.Equal(HighestPriority, harness.Prism.GetBackendPriority(harness.Id));
-		Assert.Contains(BackendId.Sapi, harness.Prism.BackendIds);
+		Assert.Contains(Platform.AnyBackend.Id, harness.Prism.BackendIds);
 	}
 
 	[Fact]
@@ -273,7 +273,7 @@ public class CustomBackendTests {
 		using RegistryBuilder builder = new();
 		builder.AddBackend(Name, 1, BackendFeatures.Speak, () => new RecordingBackend());
 		Assert.Equal(PrismError.InvalidOperation, Assert.Throws<PrismException>(() => builder.AddBackend(Name, 1, BackendFeatures.Speak, () => new RecordingBackend())).Error);
-		Assert.Equal(PrismError.InvalidOperation, Assert.Throws<PrismException>(() => builder.AddBackend("NVDA", 1, BackendFeatures.Speak, () => new RecordingBackend())).Error);
+		Assert.Equal(PrismError.InvalidOperation, Assert.Throws<PrismException>(() => builder.AddBackend(Platform.AnyBackend.Name, 1, BackendFeatures.Speak, () => new RecordingBackend())).Error);
 	}
 
 	[Fact]

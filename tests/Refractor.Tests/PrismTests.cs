@@ -21,12 +21,10 @@ public class PrismTests {
 	}
 
 	[Fact]
-	public void ListsTheWindowsBackends() {
+	public void ListsThisPlatformsBackends() {
 		using Prism prism = new();
 		Assert.Equal(prism.BackendCount, prism.BackendIds.Count);
-		Assert.Contains(BackendId.Sapi, prism.BackendIds);
-		Assert.Contains(BackendId.Nvda, prism.BackendIds);
-		Assert.Contains(BackendId.OneCore, prism.BackendIds);
+		Assert.All(Platform.ExpectedBackends, backend => Assert.Contains(backend.Id, prism.BackendIds));
 	}
 
 	[Fact]
@@ -39,18 +37,17 @@ public class PrismTests {
 	[Fact]
 	public void TheKnownIdsMatchTheirNames() {
 		using Prism prism = new();
-		Assert.Equal("SAPI", prism.GetBackendName(BackendId.Sapi));
-		Assert.Equal("NVDA", prism.GetBackendName(BackendId.Nvda));
-		Assert.Equal("JAWS", prism.GetBackendName(BackendId.Jaws));
-		Assert.Equal("OneCore", prism.GetBackendName(BackendId.OneCore));
-		Assert.Equal(BackendId.ZoomText, prism.FindBackend("ZoomText"));
+		Assert.All(Platform.ExpectedBackends, backend => {
+			Assert.Equal(backend.Name, prism.GetBackendName(backend.Id));
+			Assert.Equal(backend.Id, prism.FindBackend(backend.Name));
+		});
 	}
 
 	[Fact]
 	public void FindsBackendsByExactName() {
 		using Prism prism = new();
-		Assert.Equal(BackendId.Nvda, prism.FindBackend("NVDA"));
-		Assert.Null(prism.FindBackend("nvda"));
+		Assert.Equal(Platform.AnyBackend.Id, prism.FindBackend(Platform.AnyBackend.Name));
+		Assert.Null(prism.FindBackend(Platform.AnyBackend.Name.ToLowerInvariant()));
 		Assert.Null(prism.FindBackend("Nothing by this name"));
 	}
 
@@ -60,7 +57,7 @@ public class PrismTests {
 		Assert.False(prism.HasBackend(BackendId.Invalid));
 		Assert.Null(prism.GetBackendName(new BackendId(42)));
 		Assert.Null(prism.GetBackendPriority(new BackendId(42)));
-		Assert.True(prism.HasBackend(BackendId.Sapi));
+		Assert.True(prism.HasBackend(Platform.AnyBackend.Id));
 	}
 
 	[Fact]
