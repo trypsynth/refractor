@@ -12,6 +12,11 @@ public static unsafe partial class PrismNative {
 	public const ulong FeatureMaxBit = 1UL << 63;
 	public const string PluginEntryPoint = "prism_plugin_query";
 
+	// An iOS app has prism linked into its own executable, since it cannot load a library of its own.
+	static PrismNative() {
+		if (OperatingSystem.IsIOS()) NativeLibrary.SetDllImportResolver(typeof(PrismNative).Assembly, ResolveFromApp);
+	}
+
 	[LibraryImport(Library, EntryPoint = "prism_config_init")]
 	[UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
 	public static partial PrismConfig ConfigInit();
@@ -249,4 +254,7 @@ public static unsafe partial class PrismNative {
 	[LibraryImport(Library, EntryPoint = "prism_version_string")]
 	[UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
 	public static partial byte* VersionString();
+
+	private static nint ResolveFromApp(string name, System.Reflection.Assembly assembly, DllImportSearchPath? searchPath) =>
+		name == Library ? NativeLibrary.GetMainProgramHandle() : 0;
 }

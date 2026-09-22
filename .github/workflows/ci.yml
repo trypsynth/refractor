@@ -23,6 +23,12 @@ jobs:
             os: macos-latest
           - runtime: osx-x64
             os: macos-15-intel
+          - runtime: ios-arm64
+            os: macos-26
+          - runtime: iossimulator-arm64
+            os: macos-26
+          - runtime: iossimulator-x64
+            os: macos-26
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -250,8 +256,55 @@ jobs:
           $output
           if (-not ($output -match "${{ matrix.backend }}")) { throw "${{ matrix.backend }} is missing from the statically linked prism." }
 
+  ios:
+    needs: native
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Install the iOS workload
+        run: dotnet workload install ios
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-ios-arm64
+          path: artifacts/native/ios-arm64
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-iossimulator-arm64
+          path: artifacts/native/iossimulator-arm64
+
+      - name: Link for devices
+        run: dotnet build samples/SpeakIos -c Release -r ios-arm64 -p:EnableCodeSigning=false
+
+      - name: Build for the simulator
+        run: dotnet build samples/SpeakIos -c Release -r iossimulator-arm64
+
+      - name: Run in the simulator
+        run: |
+          udid=$(xcrun simctl list devices available -j | python3 -c "import json, sys; devices = json.load(sys.stdin)['devices']; print(next(d['udid'] for runtime, found in devices.items() if 'iOS' in runtime for d in found if d['name'].startswith('iPhone')))")
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid"
+          app=$(find samples/SpeakIos/bin -type d -name '*.app' -path '*iossimulator-arm64*' | head -1)
+          xcrun simctl install "$udid" "$app"
+          xcrun simctl launch --console-pty "$udid" com.trypsynth.refractor.speak > ios.log 2>&1 &
+          for _ in $(seq 1 90); do
+            grep -q "REFRACTOR spoke" ios.log && break
+            sleep 1
+          done
+          cat ios.log
+          grep -q "REFRACTOR backend AVSpeech" ios.log
+          grep -q "REFRACTOR spoke" ios.log
+
   package:
-    needs: test
+    needs: [test, ios]
     runs-on: windows-latest
     permissions:
       contents: read

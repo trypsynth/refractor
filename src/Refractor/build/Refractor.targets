@@ -3,6 +3,8 @@
 	<!-- Native AOT links prism into the executable, so nothing ships beside it. Everything else loads the shared prism from the package's runtimes folder. -->
 	<PropertyGroup>
 		<RefractorStaticLink Condition="'$(RefractorStaticLink)' == '' and '$(PublishAot)' == 'true'">true</RefractorStaticLink>
+		<!-- An iOS app cannot load a library of its own, so prism is always linked into it. -->
+		<RefractorStaticLink Condition="'$(RefractorStaticLink)' == '' and $(RuntimeIdentifier.StartsWith('ios'))">true</RefractorStaticLink>
 		<RefractorNativeDirectory Condition="'$(RefractorNativeDirectory)' == ''">$(MSBuildThisFileDirectory)../native/$(RuntimeIdentifier)/</RefractorNativeDirectory>
 		<_RefractorLinkTargets>$(RefractorNativeDirectory)Refractor.Native.targets</_RefractorLinkTargets>
 	</PropertyGroup>
