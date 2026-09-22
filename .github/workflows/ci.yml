@@ -89,6 +89,40 @@ jobs:
           ./count | tee out.txt
           grep -q "registered backends: [1-9]" out.txt
 
+  speechd-at-runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: lukka/get-cmake@latest
+
+      - name: Install Speech Dispatcher headers
+        run: sudo apt-get update && sudo apt-get install -y libspeechd-dev
+
+      - name: Build prism
+        run: |
+          cmake -S native/prism -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX="$PWD/install"
+          cmake --build build --parallel
+          cmake --install build
+          cc scripts/verify/speechd.c -I install/include -L install/lib -lprism -Wl,-rpath,"$PWD/install/lib" -o speechd
+
+      - name: libprism does not link libspeechd
+        run: |
+          ldd install/lib/libprism.so
+          if ldd install/lib/libprism.so | grep -q speechd; then exit 1; fi
+
+      - name: Without libspeechd
+        run: |
+          sudo apt-get remove -y libspeechd-dev libspeechd2
+          PRISM_LOG=debug ./speechd missing
+
+      - name: With Speech Dispatcher
+        run: |
+          sudo apt-get install -y speech-dispatcher speech-dispatcher-espeak-ng
+          ./speechd
+
   test:
     needs: native
     strategy:
