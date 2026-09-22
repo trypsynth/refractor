@@ -14,7 +14,10 @@ $architectures = @{ "win-x64" = "x64"; "win-arm64" = "ARM64"; "win-x86" = "Win32
 $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio/Installer/vswhere.exe"
 $studio = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -format json | ConvertFrom-Json | Select-Object -First 1
 if (-not $studio) { throw "No Visual Studio with the C++ tools was found." }
-$generator = "Visual Studio $($studio.installationVersion.Split('.')[0]) $($studio.catalog.productLineVersion)"
+$years = @{ "16" = "2019"; "17" = "2022"; "18" = "2026" }
+$major = $studio.installationVersion.Split(".")[0]
+if (-not $years.ContainsKey($major)) { throw "Visual Studio $major is not one this script knows the CMake generator for." }
+$generator = "Visual Studio $major $($years[$major])"
 
 function Write-LinkTargets([string]$libraries) {
 	# prism's install step lists every import library its Windows backends need, with the DLL
