@@ -4,6 +4,7 @@
 		<TargetFramework>net10.0</TargetFramework>
 		<IsPackable>false</IsPackable>
 		<IsTestProject>true</IsTestProject>
+		<RefractorTestRuntime Condition="'$(RefractorTestRuntime)' == ''">win-x64</RefractorTestRuntime>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -17,7 +18,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<None Include="$(RefractorNativeRoot)/win-x64/shared/bin/prism.dll" Link="prism.dll" CopyToOutputDirectory="PreserveNewest" />
+		<None Include="$(RefractorNativeRoot)/$(RefractorTestRuntime)/shared/bin/prism.dll" Link="prism.dll" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
 
 	<ItemGroup>

@@ -18,6 +18,11 @@ $years = @{ "16" = "2019"; "17" = "2022"; "18" = "2026" }
 $major = $studio.installationVersion.Split(".")[0]
 if (-not $years.ContainsKey($major)) { throw "Visual Studio $major is not one this script knows the CMake generator for." }
 $generator = "Visual Studio $major $($years[$major])"
+# prism builds its screen reader import libraries with whichever lib tool is first on PATH, and
+# llvm-lib leaves x86 stdcall names undecorated, so they cannot link. MSVC's own lib is named here.
+$toolset = (Get-Content (Join-Path $studio.installationPath "VC/Auxiliary/Build/Microsoft.VCToolsVersion.default.txt")).Trim()
+$librarian = Join-Path $studio.installationPath "VC/Tools/MSVC/$toolset/bin/Hostx64/x64/lib.exe"
+if (-not (Test-Path $librarian)) { throw "MSVC's lib.exe was not found at $librarian." }
 
 function Write-LinkTargets([string]$libraries) {
 	# prism's install step lists every import library its Windows backends need, with the DLL
@@ -39,7 +44,7 @@ foreach ($runtime in $Runtimes) {
 		$build = Join-Path $root "artifacts/native-build/$runtime/$kind"
 		$install = Join-Path $root "artifacts/native/$runtime/$kind"
 		$shared = if ($kind -eq "shared") { "ON" } else { "OFF" }
-		cmake -S $source -B $build -G $generator -A $architecture "-DBUILD_SHARED_LIBS=$shared" "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded" "-DCMAKE_INSTALL_PREFIX=$install"
+		cmake -S $source -B $build -G $generator -A $architecture "-DBUILD_SHARED_LIBS=$shared" "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded" "-DCMAKE_INSTALL_PREFIX=$install" "-DPRISM_LIB_TOOL=$librarian"
 		if ($LASTEXITCODE -ne 0) { throw "Configuring prism ($runtime, $kind) failed." }
 		cmake --build $build --config $Configuration --parallel
 		if ($LASTEXITCODE -ne 0) { throw "Building prism ($runtime, $kind) failed." }

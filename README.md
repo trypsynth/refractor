@@ -73,7 +73,7 @@ Without Native AOT, prism loads from `prism.dll` in the package's `runtimes` fol
 
 ## Platforms
 
-The package currently ships prism for `win-x64`. The bindings themselves are cross platform, and more runtimes will follow.
+The package ships prism for `win-x64`, `win-arm64` and `win-x86`. The bindings themselves are cross platform, and more runtimes will follow.
 
 ## The raw API
 

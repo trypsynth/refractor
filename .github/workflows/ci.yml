@@ -7,7 +7,81 @@ on:
   pull_request:
 
 jobs:
-  build:
+  native:
+    strategy:
+      matrix:
+        runtime: [win-x64, win-arm64, win-x86]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Find the prism commit
+        id: prism
+        shell: pwsh
+        run: echo "commit=$(git -C native/prism rev-parse HEAD)" >> $env:GITHUB_OUTPUT
+
+      - name: Cache prism
+        id: prism-cache
+        uses: actions/cache@v4
+        with:
+          path: artifacts/native/${{ matrix.runtime }}
+          key: prism-${{ matrix.runtime }}-${{ steps.prism.outputs.commit }}-${{ hashFiles('scripts/build-native.ps1') }}
+
+      - name: Build prism
+        if: steps.prism-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: ./scripts/build-native.ps1 -Runtimes ${{ matrix.runtime }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.runtime }}
+          path: artifacts/native/${{ matrix.runtime }}
+
+  test:
+    needs: native
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runtime: win-x64
+            arch: x64
+            os: windows-latest
+          - runtime: win-arm64
+            arch: arm64
+            os: windows-11-arm
+          - runtime: win-x86
+            arch: x86
+            os: windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      # The 64 bit SDK runs 32 bit tests through the x86 runtime in its standard location.
+      - name: Install the x86 runtime
+        if: matrix.arch == 'x86'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://dot.net/v1/dotnet-install.ps1 -OutFile dotnet-install.ps1
+          ./dotnet-install.ps1 -Channel 10.0 -Runtime dotnet -Architecture x86 -InstallDir "${env:ProgramFiles(x86)}\dotnet"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-${{ matrix.runtime }}
+          path: artifacts/native/${{ matrix.runtime }}
+
+      - name: Test
+        run: dotnet test tests/Refractor.Tests -c Release --arch ${{ matrix.arch }} -p:RefractorTestRuntime=${{ matrix.runtime }}
+
+  package:
+    needs: test
     runs-on: windows-latest
     permissions:
       contents: read
@@ -23,25 +97,20 @@ jobs:
             8.0.x
             10.0.x
 
-      - name: Find the prism commit
-        id: prism
-        shell: pwsh
-        run: echo "commit=$(git -C native/prism rev-parse HEAD)" >> $env:GITHUB_OUTPUT
-
-      - name: Cache prism
-        id: prism-cache
-        uses: actions/cache@v4
+      - uses: actions/download-artifact@v4
         with:
-          path: artifacts/native
-          key: prism-${{ runner.os }}-${{ steps.prism.outputs.commit }}-${{ hashFiles('scripts/build-native.ps1') }}
+          name: native-win-x64
+          path: artifacts/native/win-x64
 
-      - name: Build prism
-        if: steps.prism-cache.outputs.cache-hit != 'true'
-        shell: pwsh
-        run: ./scripts/build-native.ps1
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-win-arm64
+          path: artifacts/native/win-arm64
 
-      - name: Test
-        run: dotnet test tests/Refractor.Tests -c Release
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-win-x86
+          path: artifacts/native/win-x86
 
       - name: Pack
         run: dotnet pack src/Refractor -c Release -o artifacts/packages
