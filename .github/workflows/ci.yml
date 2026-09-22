@@ -41,6 +41,10 @@ jobs:
           path: artifacts/native/${{ matrix.runtime }}
           key: prism-${{ matrix.os }}-${{ matrix.runtime }}-${{ steps.prism.outputs.commit }}-${{ hashFiles('scripts/build-native.ps1') }}
 
+      # prism asks for C23, which older CMake cannot map to an MSVC flag.
+      - uses: lukka/get-cmake@latest
+        if: steps.prism-cache.outputs.cache-hit != 'true'
+
       - name: Build prism
         if: steps.prism-cache.outputs.cache-hit != 'true'
         shell: pwsh
