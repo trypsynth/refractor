@@ -255,6 +255,7 @@ public static unsafe partial class PrismNative {
 	[UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
 	public static partial byte* VersionString();
 
+	// Mono only accepts a handle it loaded itself, which rules out GetMainProgramHandle's pseudo handle.
 	private static nint ResolveFromApp(string name, System.Reflection.Assembly assembly, DllImportSearchPath? searchPath) =>
-		name == Library ? NativeLibrary.GetMainProgramHandle() : 0;
+		name == Library ? NativeLibrary.Load(Environment.ProcessPath!) : 0;
 }
