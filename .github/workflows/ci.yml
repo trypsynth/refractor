@@ -60,6 +60,11 @@ jobs:
           distribution: temurin
           java-version: 25
 
+      # Gradle installs the NDK prism asks for, but only once its license is accepted.
+      - name: Accept the Android SDK licenses
+        if: matrix.runtime == 'android' && steps.prism-cache.outputs.cache-hit != 'true'
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
       - name: Build prism
         if: steps.prism-cache.outputs.cache-hit != 'true'
         shell: pwsh
