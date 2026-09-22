@@ -98,20 +98,25 @@ jobs:
 
       - uses: lukka/get-cmake@latest
 
-      - name: Install Speech Dispatcher headers
-        run: sudo apt-get update && sudo apt-get install -y libspeechd-dev
+      - name: Install Speech Dispatcher and GLib headers
+        run: sudo apt-get update && sudo apt-get install -y libspeechd-dev libglib2.0-dev
 
       - name: Build prism
         run: |
-          cmake -S native/prism -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX="$PWD/install"
+          cmake -S native/prism -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX="$PWD/install" | tee configure.log
+          grep -q "orca=on" configure.log
           cmake --build build --parallel
           cmake --install build
           cc scripts/verify/speechd.c -I install/include -L install/lib -lprism -Wl,-rpath,"$PWD/install/lib" -o speechd
+          cc scripts/verify/orca.c -I install/include -L install/lib -lprism -Wl,-rpath,"$PWD/install/lib" -o orca
 
-      - name: libprism does not link libspeechd
+      - name: libprism links none of libspeechd, glibmm, giomm or sigc++
         run: |
           ldd install/lib/libprism.so
-          if ldd install/lib/libprism.so | grep -q speechd; then exit 1; fi
+          if ldd install/lib/libprism.so | grep -qE "speechd|glibmm|giomm|sigc"; then exit 1; fi
+
+      - name: Orca through GIO, and power management
+        run: PRISM_LOG=debug ./orca
 
       - name: Without libspeechd
         run: |
