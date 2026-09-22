@@ -1,6 +1,6 @@
 # Refractor
 
-.NET bindings to [prism](https://github.com/ethindp/prism), which puts screen readers and speech engines behind one API: NVDA, JAWS, ZoomText, SAPI, OneCore, UI Automation and more. Refractor covers the whole prism C API. It works with Native AOT, and links prism into the executable so that it ships as one file.
+.NET bindings to [prism](https://github.com/ethindp/prism), which puts screen readers and speech engines behind one API. On Windows that means NVDA, JAWS, ZoomText, SAPI, OneCore, UI Automation and more. On macOS and iOS it means VoiceOver and AVSpeech. Refractor covers the whole prism C API. It works with Native AOT, and links prism into the executable so that it ships as one file.
 
 ## Quick start
 
@@ -67,13 +67,21 @@ Setting the `PRISM_LOG` environment variable to `warn`, `debug` and so on makes 
 
 ## Native AOT
 
-With `PublishAot` on, Refractor links prism statically and delay loads the few screen reader DLLs that most machines do not have. The published executable needs nothing beside it. Set `RefractorStaticLink` to `false` to ship `prism.dll` next to the executable instead.
+With `PublishAot` on, Refractor links prism statically. On Windows it also delay loads the few screen reader DLLs that most machines do not have. The published executable needs nothing beside it. Set `RefractorStaticLink` to `false` to ship prism next to the executable instead, as `prism.dll` on Windows or `libprism.dylib` on macOS.
 
-Without Native AOT, prism loads from `prism.dll` in the package's `runtimes` folder.
+Without Native AOT, prism loads from the package's `runtimes` folder.
 
 ## Platforms
 
-The package ships prism for `win-x64`, `win-arm64` and `win-x86`. The bindings themselves are cross platform, and more runtimes will follow.
+| Platform | Runtimes | Backends | Oldest version |
+| --- | --- | --- | --- |
+| Windows | `win-x64`, `win-arm64`, `win-x86` | NVDA, JAWS, ZoomText, SAPI, OneCore, UI Automation and more | Windows 10 |
+| macOS | `osx-arm64`, `osx-x64` | VoiceOver, AVSpeech | macOS 12 |
+| iOS | `ios-arm64`, `iossimulator-arm64`, `iossimulator-x64` | VoiceOver, AVSpeech | iOS 14 |
+
+An iOS app cannot load a library of its own, so Refractor always links prism into the app there. There is nothing to set up.
+
+Linux and Android support is in progress.
 
 ## The raw API
 
@@ -81,15 +89,16 @@ The package ships prism for `win-x64`, `win-arm64` and `win-x86`. The bindings t
 
 ## Building
 
-Prism is a git submodule, built with CMake and MSVC:
+Prism is a git submodule, built with CMake. Windows needs Visual Studio with the C++ tools, and macOS and iOS need Xcode. The build script takes the runtimes to build, and defaults to `win-x64`:
 
 ```powershell
 git clone --recurse-submodules https://github.com/trypsynth/refractor
 cd refractor
-./scripts/build-native.ps1
-dotnet test
-dotnet pack src/Refractor -c Release -o artifacts/packages
+./scripts/build-native.ps1 -Runtimes osx-arm64
+dotnet test -p:RefractorTestRuntime=osx-arm64
 ```
+
+`dotnet pack` needs prism built for every runtime in the package, so CI builds the packages.
 
 ## License
 
