@@ -144,8 +144,13 @@ jobs:
             8.0.x
             10.0.x
 
+      # The newest .NET for iOS can need an Xcode the runner image does not have yet, so the workload
+      # is pinned to a release built for the image's Xcode.
       - name: Install the iOS workload
-        run: dotnet workload install ios
+        run: |
+          dotnet workload config --update-mode manifests
+          echo '{ "microsoft.net.sdk.ios": "26.5.10318/10.0.100" }' > ios-rollback.json
+          dotnet workload install ios --from-rollback-file ios-rollback.json
 
       - uses: actions/download-artifact@v4
         with:
