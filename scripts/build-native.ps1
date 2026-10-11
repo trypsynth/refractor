@@ -44,18 +44,11 @@ function Write-Targets([string]$directory, [string[]]$items) {
 }
 
 function Write-WindowsLinkTargets([string]$libraries) {
-	# prism's install step lists every import library its Windows backends need, with the DLL
-	# behind each. Those DLLs belong to screen readers most machines do not have, so each one is
-	# delay loaded, or the executable would refuse to start without all of them.
-	$imports = Get-Content (Join-Path $libraries "prism-static-windows.txt") | Where-Object { $_.Trim() } | ForEach-Object { , ($_ -split "\s+") }
-	$items = @('<NativeLibrary Include="$(MSBuildThisFileDirectory)prism.lib" />')
-	foreach ($import in $imports) {
-		$items += "<NativeLibrary Include=`"`$(MSBuildThisFileDirectory)$($import[0]).lib`" />"
-		$items += "<LinkerArg Include=`"/DELAYLOAD:$($import[1])`" />"
-	}
-	$items += '<NativeLibrary Include="ole32.lib;onecore.lib;runtimeobject.lib;uiautomationcore.lib;rpcrt4.lib;powrprof.lib;delayimp.lib" />'
-	# The Orca and Speech Dispatcher bridges are Linux only, so their delay loads find nothing to defer.
-	$items += '<LinkerArg Include="/IGNORE:4199" />'
+	# prism loads the screen reader DLLs most machines do not have itself, so only system libraries are linked.
+	$items = @(
+		'<NativeLibrary Include="$(MSBuildThisFileDirectory)prism.lib" />',
+		'<NativeLibrary Include="ole32.lib;onecore.lib;runtimeobject.lib;uiautomationcore.lib;rpcrt4.lib;powrprof.lib" />'
+	)
 	Write-Targets $libraries $items
 }
 

@@ -67,7 +67,7 @@ Setting the `PRISM_LOG` environment variable to `warn`, `debug` and so on makes 
 
 ## Native AOT
 
-With `PublishAot` on, Refractor links prism statically. On Windows it also delay loads the few screen reader DLLs that most machines do not have. The published executable needs nothing beside it. Set `RefractorStaticLink` to `false` to ship prism next to the executable instead, as `prism.dll` on Windows or `libprism.dylib` on macOS.
+With `PublishAot` on, Refractor links prism statically. The published executable needs nothing beside it. Set `RefractorStaticLink` to `false` to ship prism next to the executable instead, as `prism.dll` on Windows or `libprism.dylib` on macOS.
 
 Without Native AOT, prism loads from the package's `runtimes` folder.
 
