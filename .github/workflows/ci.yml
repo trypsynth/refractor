@@ -92,6 +92,8 @@ jobs:
 
   test:
     needs: native
+    # A hung test would otherwise hold the runner for six hours.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -156,7 +158,7 @@ jobs:
           path: artifacts/native/${{ matrix.runtime }}
 
       - name: Test
-        run: dotnet test tests/Refractor.Tests -c Release --arch ${{ matrix.arch }} -p:RefractorTestRuntime=${{ matrix.runtime }} --blame-crash --logger "console;verbosity=normal"
+        run: dotnet test tests/Refractor.Tests -c Release --arch ${{ matrix.arch }} -p:RefractorTestRuntime=${{ matrix.runtime }} --blame-crash --blame-hang-timeout 5m --logger "console;verbosity=normal"
 
       - uses: actions/upload-artifact@v4
         if: failure()
