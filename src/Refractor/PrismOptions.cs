@@ -11,26 +11,47 @@ public sealed class PrismOptions {
 	/// <summary>
 	/// Turns on background availability polling. Runs on prism's poll thread, never the caller's.
 	/// A backend that is already available when polling starts is not reported. An exception it
-	/// throws is dropped, and polling carries on.
+	/// throws is written to prism's log, and polling carries on.
 	/// </summary>
 	public AvailabilityChangedHandler? AvailabilityChanged { get; init; }
 
 	/// <summary>
 	/// Runs once on the poll thread after the first scan, before any change is reported. Only
 	/// needed when a decision made from an earlier direct check has to be checked again.
-	/// Ignored unless <see cref="AvailabilityChanged"/> is set. An exception it throws is dropped.
+	/// Ignored unless <see cref="AvailabilityChanged"/> is set. An exception it throws is written to
+	/// prism's log.
 	/// </summary>
 	public Action? AvailabilityBaselineEstablished { get; init; }
 
-	/// <summary>Time between scans. Null means prism's default of one second.</summary>
-	public TimeSpan? PollInterval { get; init; }
+	/// <summary>Time between scans, from 1 millisecond up. Null means prism's default of one second.</summary>
+	public TimeSpan? PollInterval {
+		get;
+		init => field = CheckMilliseconds(value, nameof(PollInterval));
+	}
 
-	/// <summary>Scans that must agree before a change is reported. Null means prism's default of two.</summary>
-	public int? DebounceSamples { get; init; }
+	/// <summary>Scans that must agree before a change is reported, from 1 up. Null means prism's default of two.</summary>
+	public int? DebounceSamples {
+		get;
+		init {
+			if (value is int samples) ArgumentOutOfRangeException.ThrowIfNegativeOrZero(samples, nameof(DebounceSamples));
+			field = value;
+		}
+	}
 
-	/// <summary>Longest interval the scans back off to while nothing changes. Null turns backoff off.</summary>
-	public TimeSpan? MaxBackoff { get; init; }
+	/// <summary>Longest interval the scans back off to while nothing changes, from 1 millisecond up. Null turns backoff off.</summary>
+	public TimeSpan? MaxBackoff {
+		get;
+		init => field = CheckMilliseconds(value, nameof(MaxBackoff));
+	}
 
 	/// <summary>Pauses polling while the system sleeps, where <see cref="Prism.IsAutoPowerManagementSupported"/>.</summary>
 	public bool AutoPowerManagement { get; init; }
+
+	// prism takes whole milliseconds as a 32 bit count, where 0 means its default.
+	private static TimeSpan? CheckMilliseconds(TimeSpan? value, string name) {
+		if (value is TimeSpan span && (span < TimeSpan.FromMilliseconds(1) || span.TotalMilliseconds > uint.MaxValue)) {
+			throw new ArgumentOutOfRangeException(name, span, $"Must be from 1 millisecond to {uint.MaxValue} milliseconds.");
+		}
+		return value;
+	}
 }

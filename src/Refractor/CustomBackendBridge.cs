@@ -1,14 +1,13 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Text;
 using Refractor.Interop;
 
 namespace Refractor;
 
-// Every entry point catches everything, because an exception cannot unwind back through prism.
+// prism calls a custom backend through these. Every entry point catches everything, because an
+// exception cannot unwind back through prism, and turns it into the error prism returns. The
+// operations go through Run and Get, whose lambdas are static so no call allocates for them.
 internal static unsafe class CustomBackendBridge {
-	private const string LogSource = "Refractor";
-
 	internal static delegate* unmanaged[Cdecl]<void*, void> FreeFactory => &FreeFactoryCore;
 
 	internal static PrismBackendVTable CreateVTable(BackendFeatures features) {
@@ -47,41 +46,6 @@ internal static unsafe class CustomBackendBridge {
 		return vtable;
 	}
 
-	private static bool Has(BackendFeatures features, BackendFeatures feature) => (features & feature) != 0;
-
-	private static Instance Get(void* instance) => (Instance)GCHandle.FromIntPtr((nint)instance).Target!;
-
-	private static CustomBackend Backend(void* instance) => Get(instance).Backend;
-
-	private static string Text(byte* text) => Utf8.Decode(text) ?? string.Empty;
-
-	private static PrismError Failure(Exception error) {
-		switch (error) {
-			case PrismException prism:
-				return prism.Error;
-			case NotImplementedException or NotSupportedException:
-				return PrismError.NotImplemented;
-			case ArgumentOutOfRangeException:
-				return PrismError.RangeOutOfBounds;
-			case ArgumentException:
-				return PrismError.InvalidParameter;
-			case OutOfMemoryException:
-				return PrismError.MemoryFailure;
-			default:
-				Log(error);
-				return PrismError.Internal;
-		}
-	}
-
-	private static void Log(Exception error) {
-		byte[] source = Encoding.UTF8.GetBytes(LogSource + "\0");
-		byte[] message = Encoding.UTF8.GetBytes($"A custom backend threw {error.GetType().FullName}: {error.Message}".Replace('\0', ' ') + "\0");
-		fixed (byte* sourceText = source)
-		fixed (byte* messageText = message) {
-			PrismNative.Log(LogLevel.Error, sourceText, messageText);
-		}
-	}
-
 	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
 	private static void FreeFactoryCore(void* userdata) => GCHandle.FromIntPtr((nint)userdata).Free();
 
@@ -92,7 +56,7 @@ internal static unsafe class CustomBackendBridge {
 			CustomBackend? backend = factory();
 			return backend is null ? null : (void*)GCHandle.ToIntPtr(GCHandle.Alloc(new Instance(backend)));
 		} catch (Exception error) {
-			Log(error);
+			PrismLog.WriteFailure("A custom backend factory", error);
 			return null;
 		}
 	}
@@ -104,7 +68,7 @@ internal static unsafe class CustomBackendBridge {
 		try {
 			(state.Backend as IDisposable)?.Dispose();
 		} catch (Exception error) {
-			Log(error);
+			PrismLog.WriteFailure("A custom backend's Dispose", error);
 		} finally {
 			state.ReleaseText();
 			handle.Free();
@@ -116,35 +80,22 @@ internal static unsafe class CustomBackendBridge {
 		try {
 			return Backend(instance).IsSupported() ? (byte)1 : (byte)0;
 		} catch (Exception error) {
-			Log(error);
+			PrismLog.WriteFailure("A custom backend's IsSupported", error);
 			return 0;
 		}
 	}
 
 	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-	private static PrismError Initialize(void* instance) {
-		try {
-			Backend(instance).Initialize();
-			return PrismError.Ok;
-		} catch (Exception error) {
-			return Failure(error);
-		}
-	}
+	private static PrismError Initialize(void* instance) => Run(instance, static backend => backend.Initialize());
 
 	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-	private static PrismError Speak(void* instance, byte* text, byte interrupt) {
-		try {
-			Backend(instance).Speak(Text(text), interrupt != 0);
-			return PrismError.Ok;
-		} catch (Exception error) {
-			return Failure(error);
-		}
-	}
+	private static PrismError Speak(void* instance, byte* text, byte interrupt) => Run(instance, ((nint)text, interrupt != 0), static (backend, call) => backend.Speak(Text(call.Item1), call.Item2));
 
 	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
 	private static PrismError SpeakToMemory(void* instance, byte* text, delegate* unmanaged[Cdecl]<void*, float*, nuint, nuint, nuint, void> callback, void* userdata) {
+		// AudioSink is a ref struct, so it cannot pass through a lambda.
 		try {
-			Backend(instance).SpeakToMemory(Text(text), new AudioSink(callback, userdata));
+			Backend(instance).SpeakToMemory(Text((nint)text), new AudioSink(callback, userdata));
 			return PrismError.Ok;
 		} catch (Exception error) {
 			return Failure(error);
@@ -152,216 +103,132 @@ internal static unsafe class CustomBackendBridge {
 	}
 
 	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-	private static PrismError Braille(void* instance, byte* text) {
+	private static PrismError Braille(void* instance, byte* text) => Run(instance, (nint)text, static (backend, text) => backend.Braille(Text(text)));
+
+	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+	private static PrismError Output(void* instance, byte* text, byte interrupt) => Run(instance, ((nint)text, interrupt != 0), static (backend, call) => backend.Output(Text(call.Item1), call.Item2));
+
+	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+	private static PrismError Stop(void* instance) => Run(instance, static backend => backend.Stop());
+
+	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+	private static PrismError Pause(void* instance) => Run(instance, static backend => backend.Pause());
+
+	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+	private static PrismError Resume(void* instance) => Run(instance, static backend => backend.Resume());
+
+	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+	private static PrismError IsSpeaking(void* instance, byte* speaking) => Get(instance, speaking, static backend => backend.IsSpeaking() ? (byte)1 : (byte)0);
+
+	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+	private static PrismError SetVolume(void* instance, float volume) => Run(instance, volume, static (backend, volume) => backend.SetVolume(volume));
+
+	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+	private static PrismError GetVolume(void* instance, float* volume) => Get(instance, volume, static backend => backend.GetVolume());
+
+	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+	private static PrismError SetRate(void* instance, float rate) => Run(instance, rate, static (backend, rate) => backend.SetRate(rate));
+
+	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+	private static PrismError GetRate(void* instance, float* rate) => Get(instance, rate, static backend => backend.GetRate());
+
+	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+	private static PrismError SetPitch(void* instance, float pitch) => Run(instance, pitch, static (backend, pitch) => backend.SetPitch(pitch));
+
+	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+	private static PrismError GetPitch(void* instance, float* pitch) => Get(instance, pitch, static backend => backend.GetPitch());
+
+	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+	private static PrismError RefreshVoices(void* instance) => Run(instance, static backend => backend.RefreshVoices());
+
+	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+	private static PrismError CountVoices(void* instance, nuint* count) => Get(instance, count, static backend => checked((nuint)backend.CountVoices()));
+
+	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+	private static PrismError GetVoiceName(void* instance, nuint voiceId, byte** name) => GetText(instance, voiceId, name, static (backend, index) => backend.GetVoiceName(index));
+
+	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+	private static PrismError GetVoiceLanguage(void* instance, nuint voiceId, byte** language) => GetText(instance, voiceId, language, static (backend, index) => backend.GetVoiceLanguage(index));
+
+	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+	private static PrismError SetVoice(void* instance, nuint voiceId) => Run(instance, voiceId, static (backend, voiceId) => backend.SetVoice(checked((int)voiceId)));
+
+	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+	private static PrismError GetVoice(void* instance, nuint* voiceId) => Get(instance, voiceId, static backend => checked((nuint)backend.GetVoice()));
+
+	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+	private static PrismError GetChannels(void* instance, nuint* channels) => Get(instance, channels, static backend => checked((nuint)backend.GetChannels()));
+
+	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+	private static PrismError GetSampleRate(void* instance, nuint* sampleRate) => Get(instance, sampleRate, static backend => checked((nuint)backend.GetSampleRate()));
+
+	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+	private static PrismError GetBitDepth(void* instance, nuint* bitDepth) => Get(instance, bitDepth, static backend => checked((nuint)backend.GetBitDepth()));
+
+	private static PrismError Run(void* instance, Action<CustomBackend> operation) {
 		try {
-			Backend(instance).Braille(Text(text));
+			operation(Backend(instance));
 			return PrismError.Ok;
 		} catch (Exception error) {
 			return Failure(error);
 		}
 	}
 
-	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-	private static PrismError Output(void* instance, byte* text, byte interrupt) {
+	private static PrismError Run<T>(void* instance, T argument, Action<CustomBackend, T> operation) {
 		try {
-			Backend(instance).Output(Text(text), interrupt != 0);
+			operation(Backend(instance), argument);
 			return PrismError.Ok;
 		} catch (Exception error) {
 			return Failure(error);
 		}
 	}
 
-	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-	private static PrismError Stop(void* instance) {
+	private static PrismError Get<T>(void* instance, T* result, Func<CustomBackend, T> operation) where T : unmanaged {
 		try {
-			Backend(instance).Stop();
+			*result = operation(Backend(instance));
 			return PrismError.Ok;
 		} catch (Exception error) {
 			return Failure(error);
 		}
 	}
 
-	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-	private static PrismError Pause(void* instance) {
-		try {
-			Backend(instance).Pause();
-			return PrismError.Ok;
-		} catch (Exception error) {
-			return Failure(error);
-		}
-	}
-
-	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-	private static PrismError Resume(void* instance) {
-		try {
-			Backend(instance).Resume();
-			return PrismError.Ok;
-		} catch (Exception error) {
-			return Failure(error);
-		}
-	}
-
-	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-	private static PrismError IsSpeaking(void* instance, byte* speaking) {
-		try {
-			*speaking = Backend(instance).IsSpeaking() ? (byte)1 : (byte)0;
-			return PrismError.Ok;
-		} catch (Exception error) {
-			return Failure(error);
-		}
-	}
-
-	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-	private static PrismError SetVolume(void* instance, float volume) {
-		try {
-			Backend(instance).SetVolume(volume);
-			return PrismError.Ok;
-		} catch (Exception error) {
-			return Failure(error);
-		}
-	}
-
-	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-	private static PrismError GetVolume(void* instance, float* volume) {
-		try {
-			*volume = Backend(instance).GetVolume();
-			return PrismError.Ok;
-		} catch (Exception error) {
-			return Failure(error);
-		}
-	}
-
-	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-	private static PrismError SetRate(void* instance, float rate) {
-		try {
-			Backend(instance).SetRate(rate);
-			return PrismError.Ok;
-		} catch (Exception error) {
-			return Failure(error);
-		}
-	}
-
-	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-	private static PrismError GetRate(void* instance, float* rate) {
-		try {
-			*rate = Backend(instance).GetRate();
-			return PrismError.Ok;
-		} catch (Exception error) {
-			return Failure(error);
-		}
-	}
-
-	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-	private static PrismError SetPitch(void* instance, float pitch) {
-		try {
-			Backend(instance).SetPitch(pitch);
-			return PrismError.Ok;
-		} catch (Exception error) {
-			return Failure(error);
-		}
-	}
-
-	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-	private static PrismError GetPitch(void* instance, float* pitch) {
-		try {
-			*pitch = Backend(instance).GetPitch();
-			return PrismError.Ok;
-		} catch (Exception error) {
-			return Failure(error);
-		}
-	}
-
-	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-	private static PrismError RefreshVoices(void* instance) {
-		try {
-			Backend(instance).RefreshVoices();
-			return PrismError.Ok;
-		} catch (Exception error) {
-			return Failure(error);
-		}
-	}
-
-	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-	private static PrismError CountVoices(void* instance, nuint* count) {
-		try {
-			*count = checked((nuint)Backend(instance).CountVoices());
-			return PrismError.Ok;
-		} catch (Exception error) {
-			return Failure(error);
-		}
-	}
-
-	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-	private static PrismError GetVoiceName(void* instance, nuint voiceId, byte** name) {
+	private static PrismError GetText(void* instance, nuint voiceId, byte** result, Func<CustomBackend, int, string> operation) {
 		try {
 			Instance state = Get(instance);
-			*name = state.Hold(state.Backend.GetVoiceName(checked((int)voiceId)));
+			*result = state.Hold(operation(state.Backend, checked((int)voiceId)));
 			return PrismError.Ok;
 		} catch (Exception error) {
 			return Failure(error);
 		}
 	}
 
-	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-	private static PrismError GetVoiceLanguage(void* instance, nuint voiceId, byte** language) {
-		try {
-			Instance state = Get(instance);
-			*language = state.Hold(state.Backend.GetVoiceLanguage(checked((int)voiceId)));
-			return PrismError.Ok;
-		} catch (Exception error) {
-			return Failure(error);
+	private static PrismError Failure(Exception error) {
+		switch (error) {
+			case PrismException prism:
+				return prism.Error;
+			case NotImplementedException or NotSupportedException:
+				return PrismError.NotImplemented;
+			// An index or count past what an int or prism's size type holds.
+			case ArgumentOutOfRangeException or OverflowException:
+				return PrismError.RangeOutOfBounds;
+			case ArgumentException:
+				return PrismError.InvalidParameter;
+			case OutOfMemoryException:
+				return PrismError.MemoryFailure;
+			default:
+				PrismLog.WriteFailure("A custom backend", error);
+				return PrismError.Internal;
 		}
 	}
 
-	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-	private static PrismError SetVoice(void* instance, nuint voiceId) {
-		try {
-			Backend(instance).SetVoice(checked((int)voiceId));
-			return PrismError.Ok;
-		} catch (Exception error) {
-			return Failure(error);
-		}
-	}
+	private static bool Has(BackendFeatures features, BackendFeatures feature) => (features & feature) != 0;
 
-	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-	private static PrismError GetVoice(void* instance, nuint* voiceId) {
-		try {
-			*voiceId = checked((nuint)Backend(instance).GetVoice());
-			return PrismError.Ok;
-		} catch (Exception error) {
-			return Failure(error);
-		}
-	}
+	private static Instance Get(void* instance) => (Instance)GCHandle.FromIntPtr((nint)instance).Target!;
 
-	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-	private static PrismError GetChannels(void* instance, nuint* channels) {
-		try {
-			*channels = checked((nuint)Backend(instance).GetChannels());
-			return PrismError.Ok;
-		} catch (Exception error) {
-			return Failure(error);
-		}
-	}
+	private static CustomBackend Backend(void* instance) => Get(instance).Backend;
 
-	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-	private static PrismError GetSampleRate(void* instance, nuint* sampleRate) {
-		try {
-			*sampleRate = checked((nuint)Backend(instance).GetSampleRate());
-			return PrismError.Ok;
-		} catch (Exception error) {
-			return Failure(error);
-		}
-	}
-
-	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-	private static PrismError GetBitDepth(void* instance, nuint* bitDepth) {
-		try {
-			*bitDepth = checked((nuint)Backend(instance).GetBitDepth());
-			return PrismError.Ok;
-		} catch (Exception error) {
-			return Failure(error);
-		}
-	}
+	// Decoded inside each operation's try, since even that can fail.
+	private static string Text(nint text) => Utf8.Decode((byte*)text) ?? string.Empty;
 
 	// prism only needs a voice string until the next name or language call on the same
 	// instance, so one buffer per instance is reused and freed with it.

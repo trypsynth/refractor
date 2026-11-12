@@ -67,7 +67,7 @@ public class AvailabilityTests {
 		using Prism prism = new(new PrismOptions { AvailabilityChanged = (_, _, _) => { } });
 		prism.PauseAvailabilityPolling();
 		prism.ResumeAvailabilityPolling();
-		Assert.True(prism.BackendCount > 0);
+		Assert.NotEmpty(prism.GetBackendIds());
 	}
 
 	private sealed class ToggledBackend : CustomBackend {

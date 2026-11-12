@@ -23,14 +23,13 @@ public class PrismTests {
 	[Fact]
 	public void ListsThisPlatformsBackends() {
 		using Prism prism = new();
-		Assert.Equal(prism.BackendCount, prism.BackendIds.Count);
-		Assert.All(Platform.ExpectedBackends, backend => Assert.Contains(backend.Id, prism.BackendIds));
+		Assert.All(Platform.ExpectedBackends, backend => Assert.Contains(backend.Id, prism.GetBackendIds()));
 	}
 
 	[Fact]
 	public void ListsBackendsHighestPriorityFirst() {
 		using Prism prism = new();
-		int[] priorities = [.. prism.BackendIds.Select(id => prism.GetBackendPriority(id) ?? -1)];
+		int[] priorities = [.. prism.GetBackendIds().Select(id => prism.GetBackendPriority(id) ?? -1)];
 		Assert.Equal(priorities.OrderDescending(), priorities);
 	}
 
@@ -83,8 +82,43 @@ public class PrismTests {
 	public void ADisposedContextRefusesToWork() {
 		Prism prism = new();
 		prism.Dispose();
-		Assert.Throws<ObjectDisposedException>(() => prism.BackendCount);
+		Assert.Throws<ObjectDisposedException>(prism.GetBackendIds);
 		prism.Dispose();
+	}
+
+	[Fact]
+	public void OptionsRefuseWhatPrismCannotTake() {
+		Assert.Throws<ArgumentOutOfRangeException>(() => new PrismOptions { PollInterval = TimeSpan.Zero });
+		Assert.Throws<ArgumentOutOfRangeException>(() => new PrismOptions { MaxBackoff = TimeSpan.FromDays(50) });
+		Assert.Throws<ArgumentOutOfRangeException>(() => new PrismOptions { DebounceSamples = 0 });
+		PrismOptions options = new() { PollInterval = TimeSpan.FromMilliseconds(1), DebounceSamples = 1, MaxBackoff = null };
+		Assert.Equal(TimeSpan.FromMilliseconds(1), options.PollInterval);
+	}
+
+	[Fact]
+	public void EverythingCanBeDisposedTwice() {
+		using RegistryBuilder builder = new();
+		Registry registry = builder.Freeze();
+		Prism prism = new(new PrismOptions { Registry = registry });
+		Backend backend = prism.Create(BackendId.NoSpeech);
+		backend.Dispose();
+		backend.Dispose();
+		prism.Dispose();
+		prism.Dispose();
+		registry.Dispose();
+		registry.Dispose();
+		builder.Dispose();
+		Assert.Throws<ObjectDisposedException>(() => backend.Name);
+		Assert.Throws<ObjectDisposedException>(registry.Retain);
+		Assert.Throws<ObjectDisposedException>(builder.Freeze);
+	}
+
+	[Fact]
+	public void ADisposedRegistryCannotBeBound() {
+		using RegistryBuilder builder = new();
+		Registry registry = builder.Freeze();
+		registry.Dispose();
+		Assert.Throws<ObjectDisposedException>(() => new Prism(new PrismOptions { Registry = registry }));
 	}
 
 	[Fact]

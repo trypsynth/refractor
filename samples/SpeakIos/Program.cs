@@ -16,7 +16,7 @@ public sealed class AppDelegate : UIApplicationDelegate {
 		Window.MakeKeyAndVisible();
 		_prism = new Prism();
 		Console.WriteLine($"REFRACTOR prism {Prism.VersionString}");
-		foreach (BackendId id in _prism.BackendIds) Console.WriteLine($"REFRACTOR backend {_prism.GetBackendName(id)}");
+		foreach (BackendId id in _prism.GetBackendIds()) Console.WriteLine($"REFRACTOR backend {_prism.GetBackendName(id)}");
 		_backend = _prism.CreateBest();
 		Console.WriteLine($"REFRACTOR best {_backend.Name}");
 		_backend.Speak("Hello from Refractor on iOS.");

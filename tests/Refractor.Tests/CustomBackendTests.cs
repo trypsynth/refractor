@@ -10,7 +10,7 @@ public class CustomBackendTests {
 		Assert.Equal(harness.Id, harness.Prism.FindBackend(Name));
 		Assert.Equal(Name, harness.Prism.GetBackendName(harness.Id));
 		Assert.Equal(HighestPriority, harness.Prism.GetBackendPriority(harness.Id));
-		Assert.Contains(Platform.AnyBackend.Id, harness.Prism.BackendIds);
+		Assert.Contains(Platform.AnyBackend.Id, harness.Prism.GetBackendIds());
 	}
 
 	[Fact]
@@ -277,6 +277,26 @@ public class CustomBackendTests {
 	}
 
 	[Fact]
+	public void AnEmptyVoiceLanguageReadsAsNone() {
+		using RegistryBuilder builder = new();
+		BackendId id = builder.AddBackend("Unlabelled", 1, BackendFeatures.CountVoices | BackendFeatures.GetVoiceName | BackendFeatures.GetVoiceLanguage, () => new UnlabelledBackend());
+		using Registry registry = builder.Freeze();
+		using Prism prism = new(new PrismOptions { Registry = registry });
+		using Backend backend = prism.Create(id);
+		backend.Initialize();
+		Assert.Null(backend.GetVoiceLanguage(0));
+		Assert.Equal([new Voice(0, "Plain", null)], backend.GetVoices());
+	}
+
+	[Fact]
+	public void AnIndexTooLargeForAnIntIsOutOfRange() {
+		using Harness harness = new();
+		using Backend backend = harness.CreateInitialized();
+		harness.Last.Failure = new OverflowException();
+		Assert.Equal(PrismError.RangeOutOfBounds, Assert.Throws<PrismException>(() => backend.Speak("Hello")).Error);
+	}
+
+	[Fact]
 	public void TheBestSkipsABackendThatMustBeAskedFor() {
 		using RegistryBuilder builder = new();
 		BackendId hidden = builder.AddBackend("Hidden", HighestPriority, BackendFeatures.Speak | BackendFeatures.RequiresExplicitSelection, () => new RecordingBackend());
@@ -325,6 +345,14 @@ public class CustomBackendTests {
 		using RegistryBuilder builder = new();
 		PrismException error = Assert.Throws<PrismException>(() => builder.AddLibrary(Path.Combine(AppContext.BaseDirectory, "no-such-plugin.dll")));
 		Assert.Equal(PrismError.LibraryLoadFailed, error.Error);
+	}
+
+	private sealed class UnlabelledBackend : CustomBackend {
+		public override int CountVoices() => 1;
+
+		public override string GetVoiceName(int index) => "Plain";
+
+		public override string GetVoiceLanguage(int index) => "";
 	}
 
 	private sealed class Harness : IDisposable {

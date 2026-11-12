@@ -44,6 +44,15 @@ public static unsafe class PrismLog {
 		}
 	}
 
+	// For an exception Refractor caught where nobody could be told, from a custom backend or an
+	// availability handler. Logging must not fail in turn, so nothing escapes this either.
+	internal static void WriteFailure(string what, Exception error) {
+		try {
+			Write(LogLevel.Error, "Refractor", $"{what} threw {error.GetType().FullName}: {error.Message}".Replace('\0', ' '));
+		} catch (Exception) {
+		}
+	}
+
 	/// <summary>Waits until everything queued before the call has been delivered.</summary>
 	public static void Flush() => PrismNative.LogFlush();
 

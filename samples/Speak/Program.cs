@@ -2,7 +2,7 @@ using Refractor;
 
 using Prism prism = new();
 Console.WriteLine($"prism {Prism.VersionString}");
-foreach (BackendId id in prism.BackendIds) Console.WriteLine($"  {prism.GetBackendName(id)} (priority {prism.GetBackendPriority(id)})");
+foreach (BackendId id in prism.GetBackendIds()) Console.WriteLine($"  {prism.GetBackendName(id)} (priority {prism.GetBackendPriority(id)})");
 if (args is ["--list"]) return;
 using Backend backend = prism.CreateBest();
 Console.WriteLine($"Speaking through {backend.Name}");

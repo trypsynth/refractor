@@ -8,25 +8,17 @@ namespace Refractor;
 /// disposed as soon as they are created.
 /// </summary>
 public sealed unsafe class Registry : IDisposable {
-	private PrismRegistry* _registry;
+	private readonly RegistryHandle _handle;
 
-	internal Registry(PrismRegistry* registry) => _registry = registry;
-
-	~Registry() => Release();
+	internal Registry(PrismRegistry* registry) => _handle = new RegistryHandle(registry);
 
 	/// <summary>Another reference to the same registry, disposed on its own.</summary>
-	public Registry Retain() => new(PrismNative.RegistryRetain(Pointer));
-
-	public void Dispose() {
-		Release();
-		GC.SuppressFinalize(this);
+	public Registry Retain() {
+		using Lease lease = Borrow();
+		return new(PrismNative.RegistryRetain((PrismRegistry*)lease.Pointer));
 	}
 
-	internal PrismRegistry* Pointer => _registry is not null ? _registry : throw new ObjectDisposedException(nameof(Registry));
+	public void Dispose() => _handle.Dispose();
 
-	private void Release() {
-		if (_registry is null) return;
-		PrismNative.RegistryRelease(_registry);
-		_registry = null;
-	}
+	internal Lease Borrow() => new(_handle, nameof(Registry));
 }

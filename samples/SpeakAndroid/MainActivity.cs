@@ -23,7 +23,7 @@ public sealed class MainActivity : Activity {
 		try {
 			_prism = new Prism();
 			Log.Info(Tag, $"prism {Prism.VersionString}");
-			foreach (BackendId id in _prism.BackendIds) Log.Info(Tag, $"backend {_prism.GetBackendName(id)}");
+			foreach (BackendId id in _prism.GetBackendIds()) Log.Info(Tag, $"backend {_prism.GetBackendName(id)}");
 			_backend = _prism.CreateBest();
 			Log.Info(Tag, $"best {_backend.Name}");
 			_backend.Speak("Hello from Refractor on Android.");

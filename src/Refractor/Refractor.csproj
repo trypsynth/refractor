@@ -34,6 +34,7 @@
 	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
 		<AndroidLibrary Include="$(RefractorAndroidLibrary)" Bind="false" />
 		<AndroidJavaSource Include="Android/PrismLoader.java" Bind="false" />
+		<ProguardConfiguration Include="Android/proguard.cfg" />
 	</ItemGroup>
 
 	<Target Name="_RefractorCheckAndroidLibrary" BeforeTargets="PrepareForBuild" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' and !Exists('$(RefractorAndroidLibrary)')">

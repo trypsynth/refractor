@@ -17,28 +17,31 @@ public sealed record Voice(int Index, string Name, string? Language);
 /// unsupported one throws <see cref="PrismException"/> with <see cref="PrismError.NotImplemented"/>.
 /// </summary>
 public sealed unsafe class Backend : IDisposable {
-	private PrismBackend* _backend;
+	private readonly BackendHandle _handle;
 	private string? _name;
 
-	internal Backend(PrismBackend* backend) => _backend = backend;
-
-	~Backend() => Release();
+	internal Backend(PrismBackend* backend) => _handle = new BackendHandle(backend);
 
 	public string Name {
 		get {
-			PrismBackend* backend = Pointer;
-			return _name ??= Utf8.Decode(PrismNative.BackendName(backend)) ?? string.Empty;
+			if (_name is not null) return _name;
+			using Lease lease = Borrow();
+			return _name = Utf8.Decode(PrismNative.BackendName(Native(lease))) ?? string.Empty;
 		}
 	}
 
 	/// <summary>May probe the system to fill in <see cref="BackendFeatures.IsSupportedAtRuntime"/>, so cache the result.</summary>
-	public BackendFeatures GetFeatures() => (BackendFeatures)PrismNative.BackendGetFeatures(Pointer);
+	public BackendFeatures GetFeatures() {
+		using Lease lease = Borrow();
+		return (BackendFeatures)PrismNative.BackendGetFeatures(Native(lease));
+	}
 
 	public bool Supports(BackendFeatures features) => (GetFeatures() & features) == features;
 
 	/// <summary>Returns false when it was already initialized, which is not an error.</summary>
 	public bool Initialize() {
-		PrismError error = PrismNative.BackendInitialize(Pointer);
+		using Lease lease = Borrow();
+		PrismError error = PrismNative.BackendInitialize(Native(lease));
 		if (error == PrismError.AlreadyInitialized) return false;
 		PrismException.ThrowIfFailed(error);
 		return true;
@@ -46,7 +49,8 @@ public sealed unsafe class Backend : IDisposable {
 
 	/// <summary>Speaks, and may return before the speech ends. Without interrupting, most backends queue.</summary>
 	public void Speak(string text, bool interrupt = false) {
-		fixed (byte* native = Utf8.Encode(text, nameof(text))) PrismException.ThrowIfFailed(PrismNative.BackendSpeak(Pointer, native, interrupt));
+		using Lease lease = Borrow();
+		fixed (byte* native = Utf8.Encode(text, nameof(text))) PrismException.ThrowIfFailed(PrismNative.BackendSpeak(Native(lease), native, interrupt));
 	}
 
 	/// <summary>
@@ -59,8 +63,9 @@ public sealed unsafe class Backend : IDisposable {
 		AudioDelivery delivery = new(callback);
 		GCHandle handle = GCHandle.Alloc(delivery);
 		try {
+			using Lease lease = Borrow();
 			fixed (byte* native = Utf8.Encode(text, nameof(text))) {
-				PrismError error = PrismNative.BackendSpeakToMemory(Pointer, native, &DeliverAudio, (void*)GCHandle.ToIntPtr(handle));
+				PrismError error = PrismNative.BackendSpeakToMemory(Native(lease), native, &DeliverAudio, (void*)GCHandle.ToIntPtr(handle));
 				delivery.Failure?.Throw();
 				PrismException.ThrowIfFailed(error);
 			}
@@ -70,25 +75,37 @@ public sealed unsafe class Backend : IDisposable {
 	}
 
 	public void Braille(string text) {
-		fixed (byte* native = Utf8.Encode(text, nameof(text))) PrismException.ThrowIfFailed(PrismNative.BackendBraille(Pointer, native));
+		using Lease lease = Borrow();
+		fixed (byte* native = Utf8.Encode(text, nameof(text))) PrismException.ThrowIfFailed(PrismNative.BackendBraille(Native(lease), native));
 	}
 
 	/// <summary>Speech and braille together. Success can mean only one of them worked.</summary>
 	public void Output(string text, bool interrupt = false) {
-		fixed (byte* native = Utf8.Encode(text, nameof(text))) PrismException.ThrowIfFailed(PrismNative.BackendOutput(Pointer, native, interrupt));
+		using Lease lease = Borrow();
+		fixed (byte* native = Utf8.Encode(text, nameof(text))) PrismException.ThrowIfFailed(PrismNative.BackendOutput(Native(lease), native, interrupt));
 	}
 
 	/// <summary>Stops this backend's speech and drops its queue. A screen reader's own speech carries on.</summary>
-	public void Stop() => PrismException.ThrowIfFailed(PrismNative.BackendStop(Pointer));
+	public void Stop() {
+		using Lease lease = Borrow();
+		PrismException.ThrowIfFailed(PrismNative.BackendStop(Native(lease)));
+	}
 
-	public void Pause() => PrismException.ThrowIfFailed(PrismNative.BackendPause(Pointer));
+	public void Pause() {
+		using Lease lease = Borrow();
+		PrismException.ThrowIfFailed(PrismNative.BackendPause(Native(lease)));
+	}
 
-	public void Resume() => PrismException.ThrowIfFailed(PrismNative.BackendResume(Pointer));
+	public void Resume() {
+		using Lease lease = Borrow();
+		PrismException.ThrowIfFailed(PrismNative.BackendResume(Native(lease)));
+	}
 
 	public bool IsSpeaking {
 		get {
+			using Lease lease = Borrow();
 			byte speaking;
-			PrismException.ThrowIfFailed(PrismNative.BackendIsSpeaking(Pointer, &speaking));
+			PrismException.ThrowIfFailed(PrismNative.BackendIsSpeaking(Native(lease), &speaking));
 			return speaking != 0;
 		}
 	}
@@ -96,64 +113,88 @@ public sealed unsafe class Backend : IDisposable {
 	/// <summary>From 0 to 1.</summary>
 	public float Volume {
 		get {
+			using Lease lease = Borrow();
 			float volume;
-			PrismException.ThrowIfFailed(PrismNative.BackendGetVolume(Pointer, &volume));
+			PrismException.ThrowIfFailed(PrismNative.BackendGetVolume(Native(lease), &volume));
 			return volume;
 		}
-		set => PrismException.ThrowIfFailed(PrismNative.BackendSetVolume(Pointer, value));
+		set {
+			using Lease lease = Borrow();
+			PrismException.ThrowIfFailed(PrismNative.BackendSetVolume(Native(lease), value));
+		}
 	}
 
 	/// <summary>From 0 to 1, where 0.5 is always the backend's default.</summary>
 	public float Rate {
 		get {
+			using Lease lease = Borrow();
 			float rate;
-			PrismException.ThrowIfFailed(PrismNative.BackendGetRate(Pointer, &rate));
+			PrismException.ThrowIfFailed(PrismNative.BackendGetRate(Native(lease), &rate));
 			return rate;
 		}
-		set => PrismException.ThrowIfFailed(PrismNative.BackendSetRate(Pointer, value));
+		set {
+			using Lease lease = Borrow();
+			PrismException.ThrowIfFailed(PrismNative.BackendSetRate(Native(lease), value));
+		}
 	}
 
 	/// <summary>From 0 to 1. Screen readers do not support it.</summary>
 	public float Pitch {
 		get {
+			using Lease lease = Borrow();
 			float pitch;
-			PrismException.ThrowIfFailed(PrismNative.BackendGetPitch(Pointer, &pitch));
+			PrismException.ThrowIfFailed(PrismNative.BackendGetPitch(Native(lease), &pitch));
 			return pitch;
 		}
-		set => PrismException.ThrowIfFailed(PrismNative.BackendSetPitch(Pointer, value));
+		set {
+			using Lease lease = Borrow();
+			PrismException.ThrowIfFailed(PrismNative.BackendSetPitch(Native(lease), value));
+		}
 	}
 
 	/// <summary>Picks up newly installed voices. Indexes may move, so store voice names, not indexes.</summary>
-	public void RefreshVoices() => PrismException.ThrowIfFailed(PrismNative.BackendRefreshVoices(Pointer));
+	public void RefreshVoices() {
+		using Lease lease = Borrow();
+		PrismException.ThrowIfFailed(PrismNative.BackendRefreshVoices(Native(lease)));
+	}
 
 	public int VoiceCount {
 		get {
+			using Lease lease = Borrow();
 			nuint count;
-			PrismException.ThrowIfFailed(PrismNative.BackendCountVoices(Pointer, &count));
+			PrismException.ThrowIfFailed(PrismNative.BackendCountVoices(Native(lease), &count));
 			return checked((int)count);
 		}
 	}
 
 	public string GetVoiceName(int index) {
+		using Lease lease = Borrow();
 		byte* name;
-		PrismException.ThrowIfFailed(PrismNative.BackendGetVoiceName(Pointer, Index(index), &name));
+		PrismException.ThrowIfFailed(PrismNative.BackendGetVoiceName(Native(lease), Index(index), &name));
 		return Utf8.Decode(name) ?? string.Empty;
 	}
 
-	public string GetVoiceLanguage(int index) {
+	/// <summary>The voice's language, such as "en-US", or null when the backend reports none for it.</summary>
+	public string? GetVoiceLanguage(int index) {
+		using Lease lease = Borrow();
 		byte* language;
-		PrismException.ThrowIfFailed(PrismNative.BackendGetVoiceLanguage(Pointer, Index(index), &language));
-		return Utf8.Decode(language) ?? string.Empty;
+		PrismException.ThrowIfFailed(PrismNative.BackendGetVoiceLanguage(Native(lease), Index(index), &language));
+		string? decoded = Utf8.Decode(language);
+		return string.IsNullOrEmpty(decoded) ? null : decoded;
 	}
 
 	/// <summary>The index of the current voice.</summary>
 	public int VoiceIndex {
 		get {
+			using Lease lease = Borrow();
 			nuint index;
-			PrismException.ThrowIfFailed(PrismNative.BackendGetVoice(Pointer, &index));
+			PrismException.ThrowIfFailed(PrismNative.BackendGetVoice(Native(lease), &index));
 			return checked((int)index);
 		}
-		set => PrismException.ThrowIfFailed(PrismNative.BackendSetVoice(Pointer, Index(value)));
+		set {
+			using Lease lease = Borrow();
+			PrismException.ThrowIfFailed(PrismNative.BackendSetVoice(Native(lease), Index(value)));
+		}
 	}
 
 	/// <summary>Every voice, with its language when the backend reports one.</summary>
@@ -167,16 +208,18 @@ public sealed unsafe class Backend : IDisposable {
 
 	public int Channels {
 		get {
+			using Lease lease = Borrow();
 			nuint channels;
-			PrismException.ThrowIfFailed(PrismNative.BackendGetChannels(Pointer, &channels));
+			PrismException.ThrowIfFailed(PrismNative.BackendGetChannels(Native(lease), &channels));
 			return checked((int)channels);
 		}
 	}
 
 	public int SampleRate {
 		get {
+			using Lease lease = Borrow();
 			nuint sampleRate;
-			PrismException.ThrowIfFailed(PrismNative.BackendGetSampleRate(Pointer, &sampleRate));
+			PrismException.ThrowIfFailed(PrismNative.BackendGetSampleRate(Native(lease), &sampleRate));
 			return checked((int)sampleRate);
 		}
 	}
@@ -184,28 +227,22 @@ public sealed unsafe class Backend : IDisposable {
 	/// <summary>The engine's native depth. <see cref="SpeakToMemory"/> always delivers 32 bit floats.</summary>
 	public int BitDepth {
 		get {
+			using Lease lease = Borrow();
 			nuint bitDepth;
-			PrismException.ThrowIfFailed(PrismNative.BackendGetBitDepth(Pointer, &bitDepth));
+			PrismException.ThrowIfFailed(PrismNative.BackendGetBitDepth(Native(lease), &bitDepth));
 			return checked((int)bitDepth);
 		}
 	}
 
 	/// <summary>Frees this handle. Speech in progress may or may not stop, so call <see cref="Stop"/> first to be sure.</summary>
-	public void Dispose() {
-		Release();
-		GC.SuppressFinalize(this);
-	}
+	public void Dispose() => _handle.Dispose();
 
 	internal static Backend Wrap(PrismBackend* backend) =>
 		backend is not null ? new Backend(backend) : throw new PrismException(PrismError.BackendNotAvailable);
 
-	private PrismBackend* Pointer => _backend is not null ? _backend : throw new ObjectDisposedException(nameof(Backend));
+	private Lease Borrow() => new(_handle, nameof(Backend));
 
-	private void Release() {
-		if (_backend is null) return;
-		PrismNative.BackendFree(_backend);
-		_backend = null;
-	}
+	private static PrismBackend* Native(in Lease lease) => (PrismBackend*)lease.Pointer;
 
 	private static nuint Index(int index) {
 		ArgumentOutOfRangeException.ThrowIfNegative(index);
