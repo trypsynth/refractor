@@ -69,6 +69,18 @@ function Write-AppleLinkTargets([string]$libraries) {
 	Write-Targets $libraries $items
 }
 
+function Get-LinuxLinkName([string]$flag) {
+	# -ldbus-1 needs libdbus-1.so, which only the development package installs, so an application's
+	# build machine could not link without it. Naming the library by its soname, -l:libdbus-1.so.3,
+	# needs only the library itself, which every system using it has.
+	if ($flag -notmatch '^-l([^:].*)$') { return $flag }
+	$compiler = $env:CC ? $env:CC : "cc"
+	$library = & $compiler "-print-file-name=lib$($Matches[1]).so"
+	if ($LASTEXITCODE -ne 0 -or -not (Test-Path $library)) { return $flag }
+	$soname = objdump -p $library | Select-String 'SONAME\s+(\S+)' | ForEach-Object { $_.Matches[0].Groups[1].Value } | Select-Object -First 1
+	return $soname ? "-l:$soname" : $flag
+}
+
 function Write-LinuxLinkTargets([string]$libraries, [string]$install) {
 	# As on macOS, the backends register themselves from statics nothing refers to, so the whole
 	# archive is linked. The system libraries prism uses depend on what the build machine had, so
@@ -79,7 +91,7 @@ function Write-LinuxLinkTargets([string]$libraries, [string]$install) {
 	foreach ($module in $modules) {
 		$flags = pkg-config --libs $module
 		Invoke-Checked "Finding the libraries for $module"
-		foreach ($flag in -split $flags) { $items += "<LinkerArg Include=`"$flag`" />" }
+		foreach ($flag in -split $flags) { $items += "<LinkerArg Include=`"$(Get-LinuxLinkName $flag)`" />" }
 	}
 	foreach ($flag in "-lstdc++", "-ldl", "-lpthread", "-lm") { $items += "<LinkerArg Include=`"$flag`" />" }
 	Write-Targets $libraries $items
