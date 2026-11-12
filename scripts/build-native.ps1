@@ -118,7 +118,10 @@ foreach ($runtime in $Runtimes) {
 			$target = $iosTargets[$runtime]
 			$arguments += @("-G", "Unix Makefiles", "-DCMAKE_BUILD_TYPE=$Configuration", "-DCMAKE_SYSTEM_NAME=iOS", "-DCMAKE_OSX_SYSROOT=$($target.Sysroot)", "-DCMAKE_OSX_ARCHITECTURES=$($target.Architecture)", "-DCMAKE_OSX_DEPLOYMENT_TARGET=$iosDeploymentTarget", "-DPRISM_ENABLE_TESTS=OFF", "-DPRISM_ENABLE_DEMOS=OFF", "-DPRISM_ENABLE_GDEXTENSION=OFF")
 		} elseif ($appleArchitectures.ContainsKey($runtime)) {
-			$arguments += @("-G", "Unix Makefiles", "-DCMAKE_BUILD_TYPE=$Configuration", "-DCMAKE_OSX_ARCHITECTURES=$($appleArchitectures[$runtime])", "-DCMAKE_OSX_DEPLOYMENT_TARGET=$appleDeploymentTarget")
+			# Homebrew on Intel installs into /usr/local/include, and an older simdutf there is found
+			# ahead of the one prism bundles, so the bundled headers are named first.
+			$simdutf = Join-Path $source "third_party/simdutf/include"
+			$arguments += @("-G", "Unix Makefiles", "-DCMAKE_BUILD_TYPE=$Configuration", "-DCMAKE_OSX_ARCHITECTURES=$($appleArchitectures[$runtime])", "-DCMAKE_OSX_DEPLOYMENT_TARGET=$appleDeploymentTarget", "-DCMAKE_CXX_FLAGS=-I$simdutf")
 		} elseif ($linuxArchitectures.ContainsKey($runtime)) {
 			$machine = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
 			if (-not $IsLinux -or $machine -ne $linuxArchitectures[$runtime]) { throw "$runtime has to be built on $($linuxArchitectures[$runtime]) Linux." }
