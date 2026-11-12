@@ -32,6 +32,37 @@ public class AvailabilityTests {
 	}
 
 	[Fact]
+	public void KeepsPollingWhenHandlersThrow() {
+		ToggledBackend.Available = true;
+		using RegistryBuilder builder = new();
+		BackendId id = builder.AddBackend("Throwing", 1, BackendFeatures.Speak, () => new ToggledBackend());
+		using Registry registry = builder.Freeze();
+		BlockingCollection<bool> changes = [];
+		using ManualResetEventSlim baseline = new();
+		using Prism prism = new(new PrismOptions {
+			Registry = registry,
+			PollInterval = TimeSpan.FromMilliseconds(20),
+			DebounceSamples = 1,
+			AvailabilityChanged = (backend, _, available) => {
+				if (backend != id) return;
+				changes.Add(available);
+				throw new InvalidOperationException("A failing availability handler.");
+			},
+			AvailabilityBaselineEstablished = () => {
+				baseline.Set();
+				throw new InvalidOperationException("A failing baseline handler.");
+			}
+		});
+		Assert.True(baseline.Wait(Patience), "The baseline scan never finished.");
+		ToggledBackend.Available = false;
+		Assert.True(changes.TryTake(out bool gone, Patience), "Going away was never reported.");
+		Assert.False(gone);
+		ToggledBackend.Available = true;
+		Assert.True(changes.TryTake(out bool back, Patience), "Coming back was never reported after a handler threw.");
+		Assert.True(back);
+	}
+
+	[Fact]
 	public void PollingCanBePausedAndResumed() {
 		using Prism prism = new(new PrismOptions { AvailabilityChanged = (_, _, _) => { } });
 		prism.PauseAvailabilityPolling();

@@ -130,16 +130,25 @@ public sealed unsafe class Prism : IDisposable {
 
 	private static uint Milliseconds(TimeSpan? span) => span is TimeSpan value ? (uint)Math.Clamp(value.TotalMilliseconds, 1, uint.MaxValue) : 0;
 
+	// An exception cannot cross back into prism: one leaving an UnmanagedCallersOnly method ends the
+	// process. A handler's exception has nobody to report to on the poll thread, so it is dropped,
+	// as a log handler's is, and polling carries on.
 	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
 	private static void OnAvailabilityChanged(void* userdata, ulong backend, byte* name, byte available) {
 		AvailabilityCallbacks callbacks = (AvailabilityCallbacks)GCHandle.FromIntPtr((nint)userdata).Target!;
-		callbacks.Changed(new BackendId(backend), Utf8.Decode(name) ?? string.Empty, available != 0);
+		try {
+			callbacks.Changed(new BackendId(backend), Utf8.Decode(name) ?? string.Empty, available != 0);
+		} catch (Exception) {
+		}
 	}
 
 	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
 	private static void OnAvailabilityBaseline(void* userdata) {
 		AvailabilityCallbacks callbacks = (AvailabilityCallbacks)GCHandle.FromIntPtr((nint)userdata).Target!;
-		callbacks.Baseline?.Invoke();
+		try {
+			callbacks.Baseline?.Invoke();
+		} catch (Exception) {
+		}
 	}
 
 	private sealed record AvailabilityCallbacks(AvailabilityChangedHandler Changed, Action? Baseline);
