@@ -10,14 +10,14 @@
 
 	<PropertyGroup>
 		<PackageId>Refractor</PackageId>
-		<Description>Speech, braille and screen reader output for .NET through prism: NVDA, JAWS, SAPI, OneCore, ZoomText and more behind one API. Links statically into Native AOT executables.</Description>
-		<PackageTags>accessibility;screen-reader;tts;speech;braille;nvda;jaws;sapi;prism;native-aot</PackageTags>
+		<Description>Speech, braille and screen reader output for .NET through prism: NVDA, JAWS, SAPI, OneCore, VoiceOver, Speech Dispatcher, Orca and more behind one API. Links statically into Native AOT executables.</Description>
+		<PackageTags>accessibility;screen-reader;tts;speech;braille;nvda;jaws;sapi;voiceover;speech-dispatcher;orca;prism;native-aot</PackageTags>
 		<PackageLicenseExpression>MIT AND MPL-2.0 AND Apache-2.0 AND BSD-2-Clause AND Zlib</PackageLicenseExpression>
 		<PackageProjectUrl>https://github.com/trypsynth/refractor</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<IncludeSymbols>true</IncludeSymbols>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
-		<RefractorPackRuntimes>win-x64;win-arm64;win-x86;osx-arm64;osx-x64;ios-arm64;iossimulator-arm64;iossimulator-x64</RefractorPackRuntimes>
+		<RefractorPackRuntimes>win-x64;win-arm64;win-x86;osx-arm64;osx-x64;ios-arm64;iossimulator-arm64;iossimulator-x64;linux-x64;linux-arm64</RefractorPackRuntimes>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -29,11 +29,11 @@
 	<Target Name="_RefractorPackNative" BeforeTargets="_GetPackageFiles">
 		<ItemGroup>
 			<_RefractorPackRuntime Include="$(RefractorPackRuntimes)" />
-			<_RefractorMissing Include="@(_RefractorPackRuntime)" Condition="!Exists('$(RefractorNativeRoot)/%(Identity)/static/lib/Refractor.Native.targets') or (!Exists('$(RefractorNativeRoot)/%(Identity)/shared/bin/prism.dll') and !Exists('$(RefractorNativeRoot)/%(Identity)/shared/lib/libprism.dylib') and !$([System.String]::Copy('%(Identity)').StartsWith('ios')))" />
+			<_RefractorMissing Include="@(_RefractorPackRuntime)" Condition="!Exists('$(RefractorNativeRoot)/%(Identity)/static/lib/Refractor.Native.targets') or (!Exists('$(RefractorNativeRoot)/%(Identity)/shared/bin/prism.dll') and !Exists('$(RefractorNativeRoot)/%(Identity)/shared/lib/libprism.dylib') and !Exists('$(RefractorNativeRoot)/%(Identity)/shared/lib/libprism.so') and !$([System.String]::Copy('%(Identity)').StartsWith('ios')))" />
 		</ItemGroup>
 		<Error Condition="'@(_RefractorMissing)' != ''" Text="prism is not built for @(_RefractorMissing). Run scripts/build-native.ps1 first." />
 		<ItemGroup>
-			<None Include="$(RefractorNativeRoot)/%(_RefractorPackRuntime.Identity)/shared/bin/*.dll;$(RefractorNativeRoot)/%(_RefractorPackRuntime.Identity)/shared/lib/*.dylib" Pack="true" PackagePath="runtimes/%(_RefractorPackRuntime.Identity)/native/" />
+			<None Include="$(RefractorNativeRoot)/%(_RefractorPackRuntime.Identity)/shared/bin/*.dll;$(RefractorNativeRoot)/%(_RefractorPackRuntime.Identity)/shared/lib/*.dylib;$(RefractorNativeRoot)/%(_RefractorPackRuntime.Identity)/shared/lib/*.so" Pack="true" PackagePath="runtimes/%(_RefractorPackRuntime.Identity)/native/" />
 			<None Include="$(RefractorNativeRoot)/%(_RefractorPackRuntime.Identity)/static/lib/*.lib;$(RefractorNativeRoot)/%(_RefractorPackRuntime.Identity)/static/lib/*.a;$(RefractorNativeRoot)/%(_RefractorPackRuntime.Identity)/static/lib/Refractor.Native.targets" Pack="true" PackagePath="native/%(_RefractorPackRuntime.Identity)/" />
 		</ItemGroup>
 	</Target>

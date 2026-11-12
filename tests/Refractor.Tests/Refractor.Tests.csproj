@@ -18,7 +18,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<None Include="$(RefractorNativeRoot)/$(RefractorTestRuntime)/shared/bin/*.dll;$(RefractorNativeRoot)/$(RefractorTestRuntime)/shared/lib/*.dylib" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+		<None Include="$(RefractorNativeRoot)/$(RefractorTestRuntime)/shared/bin/*.dll;$(RefractorNativeRoot)/$(RefractorTestRuntime)/shared/lib/*.dylib;$(RefractorNativeRoot)/$(RefractorTestRuntime)/shared/lib/*.so" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
 
 	<ItemGroup>

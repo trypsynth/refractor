@@ -69,7 +69,7 @@ Setting the `PRISM_LOG` environment variable to `warn`, `debug` and so on makes 
 
 ## Native AOT
 
-With `PublishAot` on, Refractor links prism statically. The published executable needs nothing beside it. Set `RefractorStaticLink` to `false` to ship prism next to the executable instead, as `prism.dll` on Windows or `libprism.dylib` on macOS.
+With `PublishAot` on, Refractor links prism statically. The published executable needs nothing beside it. Set `RefractorStaticLink` to `false` to ship prism next to the executable instead, as `prism.dll` on Windows, `libprism.dylib` on macOS or `libprism.so` on Linux.
 
 Without Native AOT, prism loads from the package's `runtimes` folder.
 
@@ -80,12 +80,15 @@ Without Native AOT, prism loads from the package's `runtimes` folder.
 | Windows | `win-x64`, `win-arm64`, `win-x86` | NVDA, JAWS, ZoomText, SAPI, OneCore, UI Automation and more | Windows 10 |
 | macOS | `osx-arm64`, `osx-x64` | VoiceOver, AVSpeech | macOS 12 |
 | iOS | `ios-arm64`, `iossimulator-arm64`, `iossimulator-x64` | VoiceOver, AVSpeech | iOS 14 |
+| Linux | `linux-x64`, `linux-arm64` | Speech Dispatcher, Orca | glibc 2.35, as in Ubuntu 22.04 |
 
 An iOS app cannot load a library of its own, so Refractor always links prism into the app there. There is nothing to set up.
 
 On macOS, VoiceOver speech works without any setup. To use VoiceOver's older automation path, an app bundle must declare `NSAppleEventsUsageDescription` in its `Info.plist`. A notarized app also needs the `com.apple.security.automation.apple-events` entitlement. Sandboxed apps cannot use this path.
 
-Linux and Android support is in progress.
+On Linux, prism needs `libdbus-1`, which every desktop distribution has. Speech goes through Speech Dispatcher, so it has to be installed with a voice, as it is on most desktops. Native AOT links with clang, so a Linux publish needs `clang` and `zlib1g-dev` or their equivalents.
+
+Android support is in progress.
 
 ## The raw API
 
@@ -93,7 +96,7 @@ Linux and Android support is in progress.
 
 ## Building
 
-Prism is a git submodule, built with CMake. Windows needs Visual Studio with the C++ tools, and macOS and iOS need Xcode. The build script takes the runtimes to build, and defaults to `win-x64`:
+Prism is a git submodule, built with CMake. Windows needs Visual Studio with the C++ tools, and macOS and iOS need Xcode. Linux needs GCC 12 or newer, PowerShell, and the development packages for D-Bus, Speech Dispatcher, xcb and Wayland, which on Ubuntu are `libdbus-1-dev libspeechd-dev libxcb1-dev libwayland-dev`. Linux runtimes are only built on a machine of the same architecture. The build script takes the runtimes to build, and defaults to `win-x64`:
 
 ```powershell
 git clone --recurse-submodules https://github.com/trypsynth/refractor

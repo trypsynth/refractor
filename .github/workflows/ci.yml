@@ -29,6 +29,11 @@ jobs:
             os: macos-26
           - runtime: iossimulator-x64
             os: macos-26
+          # The oldest Ubuntu runner, so the shared prism needs nothing newer than its glibc.
+          - runtime: linux-x64
+            os: ubuntu-22.04
+          - runtime: linux-arm64
+            os: ubuntu-22.04-arm
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -50,6 +55,15 @@ jobs:
       # prism asks for C23, which older CMake cannot map to an MSVC flag.
       - uses: lukka/get-cmake@latest
         if: steps.prism-cache.outputs.cache-hit != 'true'
+
+      # GCC 11, the runner's default, is too old for prism's C++23, so GCC 12 builds it.
+      - name: Install prism's Linux dependencies
+        if: runner.os == 'Linux' && steps.prism-cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-12 libdbus-1-dev libspeechd-dev libxcb1-dev libwayland-dev
+          echo "CC=gcc-12" >> $GITHUB_ENV
+          echo "CXX=g++-12" >> $GITHUB_ENV
 
       - name: Build prism
         if: steps.prism-cache.outputs.cache-hit != 'true'
@@ -87,6 +101,14 @@ jobs:
             arch: x64
             os: macos-15-intel
             backend: AVSpeech
+          - runtime: linux-x64
+            arch: x64
+            os: ubuntu-latest
+            backend: Speech Dispatcher
+          - runtime: linux-arm64
+            arch: arm64
+            os: ubuntu-24.04-arm
+            backend: Speech Dispatcher
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -105,6 +127,13 @@ jobs:
           Invoke-WebRequest https://dot.net/v1/dotnet-install.ps1 -OutFile dotnet-install.ps1
           ./dotnet-install.ps1 -Channel 10.0 -Runtime dotnet -Architecture x86 -InstallDir "${env:ProgramFiles(x86)}\dotnet"
           echo "DOTNET_ROOT_X86=${env:ProgramFiles(x86)}\dotnet" >> $env:GITHUB_ENV
+
+      # Native AOT links with clang, and needs zlib.
+      - name: Install the Native AOT prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang zlib1g-dev
 
       - uses: actions/download-artifact@v4
         with:

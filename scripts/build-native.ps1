@@ -20,6 +20,12 @@ $iosTargets = @{
 }
 # prism's own iOS builds target this release.
 $iosDeploymentTarget = "14.0"
+# Linux builds are native only, so each runtime has to be built on a machine of its own architecture.
+$linuxArchitectures = @{ "linux-x64" = "X64"; "linux-arm64" = "Arm64" }
+# prism quietly leaves out a Linux backend whose headers are missing, so they are all required
+# here, and a build machine without them fails instead of making a package without them. Spiel is
+# left out: no Ubuntu release packages its headers, and it would make prism link GIO.
+$linuxBackends = @{ "orca" = "ON"; "speech_dispatcher" = "ON"; "clipboard" = "ON"; "spiel" = "OFF" }
 
 function Get-WindowsToolchain {
 	# CMake falls back to Ninja on some setups, which cannot take -A, so the newest Visual Studio
@@ -63,6 +69,22 @@ function Write-AppleLinkTargets([string]$libraries) {
 	Write-Targets $libraries $items
 }
 
+function Write-LinuxLinkTargets([string]$libraries, [string]$install) {
+	# As on macOS, the backends register themselves from statics nothing refers to, so the whole
+	# archive is linked. The system libraries prism uses depend on what the build machine had, so
+	# they are read from the CMake package it installs rather than listed here.
+	$items = @('<LinkerArg Include="-Wl,--whole-archive;&quot;$(MSBuildThisFileDirectory)libprism.a&quot;;-Wl,--no-whole-archive" />')
+	$config = Get-Content (Join-Path $install "share/prism/prism-config.cmake") -Raw
+	$modules = [regex]::Matches($config, 'pkg_check_modules\([^"]*"([^"]+)"') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+	foreach ($module in $modules) {
+		$flags = pkg-config --libs $module
+		Invoke-Checked "Finding the libraries for $module"
+		foreach ($flag in -split $flags) { $items += "<LinkerArg Include=`"$flag`" />" }
+	}
+	foreach ($flag in "-lstdc++", "-ldl", "-lpthread", "-lm") { $items += "<LinkerArg Include=`"$flag`" />" }
+	Write-Targets $libraries $items
+}
+
 function Write-IosLinkTargets([string]$libraries) {
 	# The .NET iOS build links native references itself, for Mono and Native AOT alike. It only
 	# keeps a symbol reachable at run time when told to, so every function in prism's header is
@@ -97,6 +119,14 @@ foreach ($runtime in $Runtimes) {
 			$arguments += @("-G", "Unix Makefiles", "-DCMAKE_BUILD_TYPE=$Configuration", "-DCMAKE_SYSTEM_NAME=iOS", "-DCMAKE_OSX_SYSROOT=$($target.Sysroot)", "-DCMAKE_OSX_ARCHITECTURES=$($target.Architecture)", "-DCMAKE_OSX_DEPLOYMENT_TARGET=$iosDeploymentTarget", "-DPRISM_ENABLE_TESTS=OFF", "-DPRISM_ENABLE_DEMOS=OFF", "-DPRISM_ENABLE_GDEXTENSION=OFF")
 		} elseif ($appleArchitectures.ContainsKey($runtime)) {
 			$arguments += @("-G", "Unix Makefiles", "-DCMAKE_BUILD_TYPE=$Configuration", "-DCMAKE_OSX_ARCHITECTURES=$($appleArchitectures[$runtime])", "-DCMAKE_OSX_DEPLOYMENT_TARGET=$appleDeploymentTarget")
+		} elseif ($linuxArchitectures.ContainsKey($runtime)) {
+			$machine = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
+			if (-not $IsLinux -or $machine -ne $linuxArchitectures[$runtime]) { throw "$runtime has to be built on $($linuxArchitectures[$runtime]) Linux." }
+			$arguments += @("-G", "Unix Makefiles", "-DCMAKE_BUILD_TYPE=$Configuration") + ($linuxBackends.GetEnumerator() | ForEach-Object { "-DPRISM_ENABLE_$($_.Key.ToUpperInvariant())_BACKEND=$($_.Value)" })
+			# The C++ runtime goes into the shared prism, so it runs on distributions whose libstdc++
+			# is older than the build machine's, and is kept out of its exports so it cannot clash
+			# with another copy in the same process.
+			if ($kind -eq "shared") { $arguments += "-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -static-libgcc -Wl,--exclude-libs,ALL" }
 		} else {
 			throw "$runtime is not a runtime this script can build."
 		}
@@ -110,6 +140,7 @@ foreach ($runtime in $Runtimes) {
 		$libraries = Join-Path $install "lib"
 		if ($windowsArchitectures.ContainsKey($runtime)) { Write-WindowsLinkTargets $libraries }
 		elseif ($iosTargets.ContainsKey($runtime)) { Write-IosLinkTargets $libraries }
+		elseif ($linuxArchitectures.ContainsKey($runtime)) { Write-LinuxLinkTargets $libraries $install }
 		else { Write-AppleLinkTargets $libraries }
 	}
 }
