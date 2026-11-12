@@ -13,11 +13,31 @@ public static unsafe partial class PrismNative {
 	public const string PluginEntryPoint = "prism_plugin_query";
 
 	// An iOS app has prism linked into its own executable, since it cannot load a library of its own.
+	// On Android, Java loads prism first, so .NET finds it already loaded.
 	[ModuleInitializer]
 	[System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2255", Justification = "Mono looks prism up while compiling the first caller, before a static constructor here would run.")]
 	internal static void RegisterResolver() {
 		if (OperatingSystem.IsIOS()) NativeLibrary.SetDllImportResolver(typeof(PrismNative).Assembly, ResolveFromApp);
+#if ANDROID
+		LoadThroughJava();
+#endif
 	}
+
+#if ANDROID
+	// prism learns the Java VM from its JNI_OnLoad, which Android only runs for a library Java
+	// loads, and which finds prism's Java classes through the loading class's class loader. A
+	// thread .NET started sees only the boot class loader, so the app's own is asked both where
+	// prism is and for PrismLoader, a class of Refractor's that does the loading.
+	private static void LoadThroughJava() {
+		Java.Lang.ClassLoader loader = Android.App.Application.Context.ClassLoader ?? throw new DllNotFoundException("The app has no class loader to find prism with.");
+		string path = Android.Runtime.Extensions.JavaCast<Dalvik.SystemInterop.BaseDexClassLoader>(loader)?.FindLibrary(Library)
+			?? throw new DllNotFoundException($"The app does not contain lib{Library}.so for this device's ABI.");
+		using Java.Lang.Class prismLoader = loader.LoadClass("com.trypsynth.refractor.PrismLoader")!;
+		nint load = Android.Runtime.JNIEnv.GetStaticMethodID(prismLoader.Handle, "load", "(Ljava/lang/String;)V");
+		using Java.Lang.String text = new(path);
+		Android.Runtime.JNIEnv.CallStaticVoidMethod(prismLoader.Handle, load, new Android.Runtime.JValue(text));
+	}
+#endif
 
 	[LibraryImport(Library, EntryPoint = "prism_config_init")]
 	[UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]

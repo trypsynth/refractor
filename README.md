@@ -81,6 +81,7 @@ Without Native AOT, prism loads from the package's `runtimes` folder.
 | macOS | `osx-arm64`, `osx-x64` | VoiceOver, AVSpeech | macOS 12 |
 | iOS | `ios-arm64`, `iossimulator-arm64`, `iossimulator-x64` | VoiceOver, AVSpeech | iOS 14 |
 | Linux | `linux-x64`, `linux-arm64` | Speech Dispatcher, Orca | glibc 2.35, as in Ubuntu 22.04 |
+| Android | `android-arm64`, `android-x64` | The running screen reader, such as TalkBack, and Android text to speech | Android 8 (API 26), with `net10.0-android` |
 
 An iOS app cannot load a library of its own, so Refractor always links prism into the app there. There is nothing to set up.
 
@@ -88,7 +89,7 @@ On macOS, VoiceOver speech works without any setup. To use VoiceOver's older aut
 
 On Linux, prism needs `libdbus-1`, which every desktop distribution has. Speech goes through Speech Dispatcher, so it has to be installed with a voice, as it is on most desktops. Native AOT links with clang, so a Linux publish needs `clang` and `zlib1g-dev` or their equivalents.
 
-Android support is in progress.
+On Android, Refractor brings prism's library archive, which merges into your app's manifest and sets prism up when the app starts. Starting Android's speech engine waits for a callback on the main thread, so call `CreateBest`, `AcquireBest` and `Initialize` from another thread, or the app hangs for 10 seconds and the backend fails to start. Android always uses the shared prism, Native AOT or not.
 
 ## The raw API
 

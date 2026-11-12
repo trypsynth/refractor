@@ -1,7 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>net8.0</TargetFramework>
+		<!-- The Android target needs the .NET Android workload, so it is only built when asked for, as the package build does. -->
+		<TargetFrameworks>net8.0</TargetFrameworks>
+		<TargetFrameworks Condition="'$(RefractorAndroid)' == 'true'">net8.0;net10.0-android</TargetFrameworks>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">26.0</SupportedOSPlatformVersion>
+		<RefractorAndroidLibrary>$(RefractorNativeRoot)/android/prism.aar</RefractorAndroidLibrary>
 		<RootNamespace>Refractor</RootNamespace>
 		<IsAotCompatible>true</IsAotCompatible>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
@@ -26,7 +30,18 @@
 		<None Include="build/Refractor.targets" Pack="true" PackagePath="buildTransitive/" />
 	</ItemGroup>
 
+	<!-- prism's archive carries its Java backends, its libprism.so for each ABI, and the manifest entry that gives it the application context. -->
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+		<AndroidLibrary Include="$(RefractorAndroidLibrary)" Bind="false" />
+		<AndroidJavaSource Include="Android/PrismLoader.java" Bind="false" />
+	</ItemGroup>
+
+	<Target Name="_RefractorCheckAndroidLibrary" BeforeTargets="PrepareForBuild" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' and !Exists('$(RefractorAndroidLibrary)')">
+		<Error Text="prism is not built for Android. Run scripts/build-native.ps1 -Runtimes android first." />
+	</Target>
+
 	<Target Name="_RefractorPackNative" BeforeTargets="_GetPackageFiles">
+		<Error Condition="'$(RefractorAndroid)' != 'true'" Text="The package includes Android, so pack with -p:RefractorAndroid=true and the .NET Android workload installed." />
 		<ItemGroup>
 			<_RefractorPackRuntime Include="$(RefractorPackRuntimes)" />
 			<_RefractorMissing Include="@(_RefractorPackRuntime)" Condition="!Exists('$(RefractorNativeRoot)/%(Identity)/static/lib/Refractor.Native.targets') or (!Exists('$(RefractorNativeRoot)/%(Identity)/shared/bin/prism.dll') and !Exists('$(RefractorNativeRoot)/%(Identity)/shared/lib/libprism.dylib') and !Exists('$(RefractorNativeRoot)/%(Identity)/shared/lib/libprism.so') and !$([System.String]::Copy('%(Identity)').StartsWith('ios')))" />

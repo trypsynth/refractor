@@ -2,6 +2,8 @@
 
 	<!-- Native AOT links prism into the executable, so nothing ships beside it. Everything else loads the shared prism from the package's runtimes folder. -->
 	<PropertyGroup>
+		<!-- prism's Android backends are Java as well, so on Android it always comes from its library archive. -->
+		<RefractorStaticLink Condition="'$(TargetPlatformIdentifier)' == 'android' or $(RuntimeIdentifier.StartsWith('android'))">false</RefractorStaticLink>
 		<RefractorStaticLink Condition="'$(RefractorStaticLink)' == '' and '$(PublishAot)' == 'true'">true</RefractorStaticLink>
 		<!-- An iOS app cannot load a library of its own, so prism is always linked into it. -->
 		<RefractorStaticLink Condition="'$(RefractorStaticLink)' == '' and $(RuntimeIdentifier.StartsWith('ios'))">true</RefractorStaticLink>
