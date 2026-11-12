@@ -6,6 +6,11 @@ on:
     tags: ["v*"]
   pull_request:
 
+# A newer push to the same branch, pull request or tag makes an older run moot, so only the newest runs.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # MSVC links libraries from an older toolset but not a newer one, so prism is built with the
   # oldest Visual Studio a consumer is likely to publish with.
