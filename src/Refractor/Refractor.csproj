@@ -12,7 +12,7 @@
 		<PackageId>Refractor</PackageId>
 		<Description>Speech, braille and screen reader output for .NET through prism: NVDA, JAWS, SAPI, OneCore, ZoomText and more behind one API. Links statically into Native AOT executables.</Description>
 		<PackageTags>accessibility;screen-reader;tts;speech;braille;nvda;jaws;sapi;prism;native-aot</PackageTags>
-		<PackageLicenseExpression>MIT AND MPL-2.0 AND Apache-2.0 AND BSD-2-Clause</PackageLicenseExpression>
+		<PackageLicenseExpression>MIT AND MPL-2.0 AND Apache-2.0 AND BSD-2-Clause AND Zlib</PackageLicenseExpression>
 		<PackageProjectUrl>https://github.com/trypsynth/refractor</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<IncludeSymbols>true</IncludeSymbols>

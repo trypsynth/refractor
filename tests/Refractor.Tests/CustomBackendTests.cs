@@ -277,6 +277,37 @@ public class CustomBackendTests {
 	}
 
 	[Fact]
+	public void TheBestSkipsABackendThatMustBeAskedFor() {
+		using RegistryBuilder builder = new();
+		BackendId hidden = builder.AddBackend("Hidden", HighestPriority, BackendFeatures.Speak | BackendFeatures.RequiresExplicitSelection, () => new RecordingBackend());
+		builder.AddBackend("Shown", HighestPriority - 1, BackendFeatures.Speak, () => new RecordingBackend());
+		using Registry registry = builder.Freeze();
+		using Prism prism = new(new PrismOptions { Registry = registry });
+		using (Backend best = prism.CreateBest()) Assert.Equal("Shown", best.Name);
+		using (Backend best = prism.AcquireBest()) Assert.Equal("Shown", best.Name);
+		using Backend asked = prism.Create(hidden);
+		Assert.Equal("Hidden", asked.Name);
+	}
+
+	[Fact]
+	public void ReportsTheDeclaredKindOfBackend() {
+		using RegistryBuilder builder = new();
+		BackendId id = builder.AddBackend("Reader", 1, BackendFeatures.Speak | BackendFeatures.IsScreenReader, () => new RecordingBackend());
+		using Registry registry = builder.Freeze();
+		using Prism prism = new(new PrismOptions { Registry = registry });
+		using Backend backend = prism.Create(id);
+		Assert.True(backend.Supports(BackendFeatures.IsScreenReader));
+		Assert.False(backend.Supports(BackendFeatures.IsSpeechEngine));
+	}
+
+	[Fact]
+	public void RefusesABackendThatIsBothAScreenReaderAndASpeechEngine() {
+		using RegistryBuilder builder = new();
+		PrismException error = Assert.Throws<PrismException>(() => builder.AddBackend(Name, 1, BackendFeatures.Speak | BackendFeatures.IsScreenReader | BackendFeatures.IsSpeechEngine, () => new RecordingBackend()));
+		Assert.Equal(PrismError.InvalidParameter, error.Error);
+	}
+
+	[Fact]
 	public void RefusesANegativePriority() {
 		using RegistryBuilder builder = new();
 		Assert.Throws<ArgumentOutOfRangeException>(() => builder.AddBackend(Name, -1, BackendFeatures.Speak, () => new RecordingBackend()));

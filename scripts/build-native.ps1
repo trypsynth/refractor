@@ -47,7 +47,7 @@ function Write-WindowsLinkTargets([string]$libraries) {
 	# prism loads the screen reader DLLs most machines do not have itself, so only system libraries are linked.
 	$items = @(
 		'<NativeLibrary Include="$(MSBuildThisFileDirectory)prism.lib" />',
-		'<NativeLibrary Include="ole32.lib;onecore.lib;runtimeobject.lib;uiautomationcore.lib;rpcrt4.lib;powrprof.lib" />'
+		'<NativeLibrary Include="ole32.lib;onecore.lib;runtimeobject.lib;uiautomationcore.lib;rpcrt4.lib;powrprof.lib;xaudio2.lib" />'
 	)
 	Write-Targets $libraries $items
 }
@@ -56,7 +56,7 @@ function Write-AppleLinkTargets([string]$libraries) {
 	# Each backend registers itself from a static nothing else refers to, so the archive has to be
 	# loaded whole or the linker drops every backend.
 	$items = @('<LinkerArg Include="-Wl,-force_load,&quot;$(MSBuildThisFileDirectory)libprism.a&quot;" />')
-	foreach ($framework in "Foundation", "AVFoundation", "AppKit", "IOKit", "CoreFoundation") {
+	foreach ($framework in "Foundation", "AVFoundation", "AppKit", "IOKit", "CoreFoundation", "CoreServices", "Security") {
 		$items += "<LinkerArg Include=`"-framework $framework`" />"
 	}
 	$items += '<LinkerArg Include="-lc++" />'
@@ -89,7 +89,9 @@ foreach ($runtime in $Runtimes) {
 			$windows ??= Get-WindowsToolchain
 			# The static C runtime is what Native AOT links, so the static objects agree with it and
 			# the DLL needs no redistributable.
-			$arguments += @("-G", $windows.Generator, "-A", $windowsArchitectures[$runtime], "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded", "-DPRISM_LIB_TOOL=$($windows.Librarian)")
+			# prism builds its GDK speech backend whenever it finds a GDK install, which would make the
+			# result depend on the machine and need xgameruntime.thunks.dll shipped beside it.
+			$arguments += @("-G", $windows.Generator, "-A", $windowsArchitectures[$runtime], "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded", "-DPRISM_LIB_TOOL=$($windows.Librarian)", "-DPRISM_ENABLE_GDK_SPEECH_BACKEND=OFF")
 		} elseif ($iosTargets.ContainsKey($runtime)) {
 			$target = $iosTargets[$runtime]
 			$arguments += @("-G", "Unix Makefiles", "-DCMAKE_BUILD_TYPE=$Configuration", "-DCMAKE_SYSTEM_NAME=iOS", "-DCMAKE_OSX_SYSROOT=$($target.Sysroot)", "-DCMAKE_OSX_ARCHITECTURES=$($target.Architecture)", "-DCMAKE_OSX_DEPLOYMENT_TARGET=$iosDeploymentTarget", "-DPRISM_ENABLE_TESTS=OFF", "-DPRISM_ENABLE_DEMOS=OFF", "-DPRISM_ENABLE_GDEXTENSION=OFF")

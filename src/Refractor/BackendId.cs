@@ -23,6 +23,11 @@ public readonly record struct BackendId(ulong Value) {
 	public static BackendId SystemAccess => new(0x8380F2A37B2C3EB6);
 	public static BackendId WindowEyes => new(0x9120D89908785C13);
 	public static BackendId Spiel => new(0x478B44F14AD3D89C);
+	public static BackendId GdkSpeech => new(0xD39D872349416B11);
+	/// <summary>Puts text on the system clipboard. Only created when asked for by id or name.</summary>
+	public static BackendId Clipboard => new(0x7056908DE8F9F991);
+	/// <summary>Accepts every operation and produces nothing, silence for speech to memory. Only created when asked for by id or name.</summary>
+	public static BackendId NoSpeech => new(0xC2C0EAB0BF97A5F0);
 
 	public bool IsValid => Value != 0;
 

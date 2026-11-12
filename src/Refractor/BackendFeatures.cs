@@ -36,5 +36,14 @@ public enum BackendFeatures : ulong {
 	/// <summary>Reserved by prism.</summary>
 	SpeakSsml = 1UL << 27,
 	/// <summary>Reserved by prism.</summary>
-	SpeakToMemorySsml = 1UL << 28
+	SpeakToMemorySsml = 1UL << 28,
+	/// <summary>Output goes through a screen reader. Never set together with <see cref="IsSpeechEngine"/>.</summary>
+	IsScreenReader = 1UL << 56,
+	/// <summary>A standalone speech engine. Never set together with <see cref="IsScreenReader"/>.</summary>
+	IsSpeechEngine = 1UL << 57,
+	/// <summary>
+	/// Skipped by <see cref="Prism.CreateBest"/> and <see cref="Prism.AcquireBest"/>, so it is only
+	/// used when created or acquired by id.
+	/// </summary>
+	RequiresExplicitSelection = 1UL << 58
 }

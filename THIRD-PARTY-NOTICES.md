@@ -9,7 +9,8 @@ The Refractor package contains compiled builds of [prism](https://github.com/eth
 | Highway | Apache-2.0 or BSD-3-Clause | |
 | {fmt} | MIT | |
 | Moderncom | MIT | Windows COM support |
-| concurrentqueue | BSD-2-Clause | Simplified BSD, as chosen by prism |
+| concurrentqueue | BSD-2-Clause | Simplified BSD, as chosen by prism. Its semaphore, from Jeff Preshing, is under a zlib-style license |
+| NVGT math utilities | Zlib | Range conversion helpers in prism's `source/utils.cpp` |
 | dr_wav | Public domain | As chosen by prism |
 | NVDA controller client RPC definitions | MPL-2.0 | Relicensed to prism from LGPL-2.1, as described in prism's NOTICE |
 

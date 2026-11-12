@@ -25,6 +25,8 @@ backend.Speak("Hello from .NET!");
 
 Use `CreateBest` unless you need something else. `Initialize` returns `false` when the backend was already initialized, which is not an error. Ids for every known backend are on `BackendId`, for example `BackendId.Nvda`.
 
+`CreateBest` and `AcquireBest` skip backends that report `BackendFeatures.RequiresExplicitSelection`, so you only get those by id. Two are built in: `BackendId.Clipboard` puts text on the clipboard, and `BackendId.NoSpeech` accepts every call and makes no sound, which is handy in tests. `BackendFeatures.IsScreenReader` and `BackendFeatures.IsSpeechEngine` tell the two kinds of backend apart.
+
 Not every backend supports every operation. Check `GetFeatures()` or `Supports(...)` first. An unsupported operation throws `PrismException` with `PrismError.NotImplemented`.
 
 A backend is not thread safe. Use one instance from one thread at a time, or create one per thread.
@@ -80,6 +82,8 @@ Without Native AOT, prism loads from the package's `runtimes` folder.
 | iOS | `ios-arm64`, `iossimulator-arm64`, `iossimulator-x64` | VoiceOver, AVSpeech | iOS 14 |
 
 An iOS app cannot load a library of its own, so Refractor always links prism into the app there. There is nothing to set up.
+
+On macOS, VoiceOver speech works without any setup. To use VoiceOver's older automation path, an app bundle must declare `NSAppleEventsUsageDescription` in its `Info.plist`. A notarized app also needs the `com.apple.security.automation.apple-events` entitlement. Sandboxed apps cannot use this path.
 
 Linux and Android support is in progress.
 
