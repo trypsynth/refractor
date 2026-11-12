@@ -10,14 +10,15 @@ public sealed class PrismOptions {
 
 	/// <summary>
 	/// Turns on background availability polling. Runs on prism's poll thread, never the caller's.
-	/// A backend that is already available when polling starts is not reported.
+	/// A backend that is already available when polling starts is not reported. An exception it
+	/// throws is dropped, and polling carries on.
 	/// </summary>
 	public AvailabilityChangedHandler? AvailabilityChanged { get; init; }
 
 	/// <summary>
 	/// Runs once on the poll thread after the first scan, before any change is reported. Only
 	/// needed when a decision made from an earlier direct check has to be checked again.
-	/// Ignored unless <see cref="AvailabilityChanged"/> is set.
+	/// Ignored unless <see cref="AvailabilityChanged"/> is set. An exception it throws is dropped.
 	/// </summary>
 	public Action? AvailabilityBaselineEstablished { get; init; }
 
