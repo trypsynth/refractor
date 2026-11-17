@@ -1,6 +1,8 @@
 # Refractor
 
-.NET bindings to [prism](https://github.com/ethindp/prism), which puts screen readers and speech engines behind one API. On Windows that means NVDA, JAWS, ZoomText, SAPI, OneCore, UI Automation and more. On macOS and iOS it means VoiceOver and AVSpeech. Refractor covers the whole prism C API. It works with Native AOT, and links prism into the executable so that it ships as one file.
+.NET bindings to [prism](https://github.com/ethindp/prism), which puts screen readers and speech engines behind one API, on Windows, macOS, iOS, Linux and Android. On Windows that means NVDA, JAWS, ZoomText, SAPI, OneCore, UI Automation and more. On macOS and iOS it means VoiceOver and AVSpeech, on Linux Speech Dispatcher and Orca, and on Android the running screen reader and Android text to speech. Refractor covers the whole prism C API. It works with Native AOT, and links prism into the executable so that it ships as one file.
+
+The guide and API reference are at [trypsynth.github.io/refractor](https://trypsynth.github.io/refractor).
 
 ## Quick start
 
