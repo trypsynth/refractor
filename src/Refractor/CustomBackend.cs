@@ -69,10 +69,17 @@ public abstract class CustomBackend {
 	private static PrismException NotImplemented() => new(PrismError.NotImplemented);
 }
 
-/// <summary>Where <see cref="CustomBackend.SpeakToMemory"/> sends audio. It only exists for that call.</summary>
-public readonly unsafe ref struct AudioSink {
+/// <summary>
+/// Where <see cref="CustomBackend.SpeakToMemory"/> sends audio. It only works during that call:
+/// prism's receiver is gone once it returns, so a later <see cref="Write(ReadOnlySpan{float}, int, int)"/>
+/// throws <see cref="ObjectDisposedException"/>.
+/// </summary>
+// A class rather than a ref struct, which would enforce that at compile time, because Visual
+// Basic cannot use ref structs at all, and could not override SpeakToMemory.
+public sealed unsafe class AudioSink {
 	private readonly delegate* unmanaged[Cdecl]<void*, float*, nuint, nuint, nuint, void> _callback;
 	private readonly void* _userdata;
+	private volatile bool _closed;
 
 	internal AudioSink(delegate* unmanaged[Cdecl]<void*, float*, nuint, nuint, nuint, void> callback, void* userdata) {
 		_callback = callback;
@@ -81,9 +88,18 @@ public readonly unsafe ref struct AudioSink {
 
 	/// <summary>Sends interleaved samples in [-1, 1].</summary>
 	public void Write(ReadOnlySpan<float> samples, int channels, int sampleRate) {
+		ObjectDisposedException.ThrowIf(_closed, this);
 		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(channels);
 		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
 		if (_callback is null) return;
 		fixed (float* data = samples) _callback(_userdata, data, (nuint)samples.Length, (nuint)channels, (nuint)sampleRate);
 	}
+
+	/// <summary>Sends interleaved samples in [-1, 1].</summary>
+	public void Write(float[] samples, int channels, int sampleRate) {
+		ArgumentNullException.ThrowIfNull(samples);
+		Write(samples.AsSpan(), channels, sampleRate);
+	}
+
+	internal void Close() => _closed = true;
 }

@@ -93,12 +93,16 @@ internal static unsafe class CustomBackendBridge {
 
 	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
 	private static PrismError SpeakToMemory(void* instance, byte* text, delegate* unmanaged[Cdecl]<void*, float*, nuint, nuint, nuint, void> callback, void* userdata) {
-		// AudioSink is a ref struct, so it cannot pass through a lambda.
+		// The sink is closed as soon as the backend returns, since prism's receiver goes with the call.
+		AudioSink? sink = null;
 		try {
-			Backend(instance).SpeakToMemory(Text((nint)text), new AudioSink(callback, userdata));
+			sink = new AudioSink(callback, userdata);
+			Backend(instance).SpeakToMemory(Text((nint)text), sink);
 			return PrismError.Ok;
 		} catch (Exception error) {
 			return Failure(error);
+		} finally {
+			sink?.Close();
 		}
 	}
 

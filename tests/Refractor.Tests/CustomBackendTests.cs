@@ -277,6 +277,21 @@ public class CustomBackendTests {
 	}
 
 	[Fact]
+	public void ASinkKeptPastItsCallRefusesToWrite() {
+		KeepingBackend keeping = new();
+		using RegistryBuilder builder = new();
+		BackendId id = builder.AddBackend("Keeping", 1, BackendFeatures.SpeakToMemory, () => keeping);
+		using Registry registry = builder.Freeze();
+		using Prism prism = new(new PrismOptions { Registry = registry });
+		using Backend backend = prism.Create(id);
+		backend.Initialize();
+		int delivered = 0;
+		backend.SpeakToMemory("Hello", (samples, _, _) => delivered += samples.Length);
+		Assert.Equal(3, delivered);
+		Assert.Throws<ObjectDisposedException>(() => keeping.Kept!.Write([0.5f], 1, 22050));
+	}
+
+	[Fact]
 	public void AnEmptyVoiceLanguageReadsAsNone() {
 		using RegistryBuilder builder = new();
 		BackendId id = builder.AddBackend("Unlabelled", 1, BackendFeatures.CountVoices | BackendFeatures.GetVoiceName | BackendFeatures.GetVoiceLanguage, () => new UnlabelledBackend());
@@ -345,6 +360,15 @@ public class CustomBackendTests {
 		using RegistryBuilder builder = new();
 		PrismException error = Assert.Throws<PrismException>(() => builder.AddLibrary(Path.Combine(AppContext.BaseDirectory, "no-such-plugin.dll")));
 		Assert.Equal(PrismError.LibraryLoadFailed, error.Error);
+	}
+
+	private sealed class KeepingBackend : CustomBackend {
+		public AudioSink? Kept { get; private set; }
+
+		public override void SpeakToMemory(string text, AudioSink sink) {
+			Kept = sink;
+			sink.Write([0.1f, 0.2f, 0.3f], 1, 22050);
+		}
 	}
 
 	private sealed class UnlabelledBackend : CustomBackend {
