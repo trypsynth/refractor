@@ -51,6 +51,15 @@ public class PrismTests {
 	}
 
 	[Fact]
+	public void TriesToFindBackendsByName() {
+		using Prism prism = new();
+		Assert.True(prism.TryFindBackend(Platform.AnyBackend.Name, out BackendId found));
+		Assert.Equal(Platform.AnyBackend.Id, found);
+		Assert.False(prism.TryFindBackend("Nothing by this name", out BackendId missing));
+		Assert.Equal(BackendId.Invalid, missing);
+	}
+
+	[Fact]
 	public void AnUnknownIdHasNoNameOrPriority() {
 		using Prism prism = new();
 		Assert.False(prism.HasBackend(BackendId.Invalid));

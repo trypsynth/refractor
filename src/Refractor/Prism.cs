@@ -63,6 +63,16 @@ public sealed unsafe class Prism : IDisposable {
 		}
 	}
 
+	/// <summary>
+	/// <see cref="FindBackend"/> in the try pattern, which F# reads as a tuple to match on, as in
+	/// <c>match prism.TryFindBackend "NVDA" with | true, id -> ...</c>.
+	/// </summary>
+	public bool TryFindBackend(string name, out BackendId id) {
+		BackendId? found = FindBackend(name);
+		id = found.GetValueOrDefault();
+		return found.HasValue;
+	}
+
 	public string? GetBackendName(BackendId id) {
 		using Lease lease = Borrow();
 		return Utf8.Decode(PrismNative.RegistryName(Native(lease), id.Value));
