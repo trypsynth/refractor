@@ -1,18 +1,18 @@
 namespace Refractor.Interop;
 
-/// <summary><c>PrismContext</c>, an opaque prism context.</summary>
+/// <summary>An opaque prism context.</summary>
 public struct PrismContext;
 
-/// <summary><c>PrismBackend</c>, an opaque backend handle.</summary>
+/// <summary>An opaque backend handle.</summary>
 public struct PrismBackend;
 
-/// <summary><c>PrismRegistry</c>, an opaque frozen registry.</summary>
+/// <summary>An opaque frozen registry.</summary>
 public struct PrismRegistry;
 
-/// <summary><c>PrismRegistryBuilder</c>, an opaque registry builder.</summary>
+/// <summary>An opaque registry builder.</summary>
 public struct PrismRegistryBuilder;
 
-/// <summary><c>PrismConfig</c>, the settings <c>prism_init</c> takes. Start from <see cref="PrismNative.ConfigInit"/>.</summary>
+/// <summary>The settings <c>prism_init</c> takes. Start from <see cref="PrismNative.ConfigInit"/>.</summary>
 public unsafe struct PrismConfig {
 	/// <summary>The C field <c>version</c>.</summary>
 	public byte Version;
@@ -34,7 +34,7 @@ public unsafe struct PrismConfig {
 	public delegate* unmanaged[Cdecl]<void*, void> AvailabilityBaselineCallback;
 }
 
-/// <summary><c>PrismBackendVTable</c>, the operations of a backend registered from outside prism. A null entry is an operation it does not have.</summary>
+/// <summary>The operations of a backend registered from outside prism. A null entry is an operation it does not have.</summary>
 public unsafe struct PrismBackendVTable {
 	/// <summary>The C field <c>size</c>.</summary>
 	public nuint Size;
@@ -94,7 +94,7 @@ public unsafe struct PrismBackendVTable {
 	public delegate* unmanaged[Cdecl]<void*, nuint*, PrismError> GetBitDepth;
 }
 
-/// <summary><c>PrismLogHandler</c>, a log callback and its user data.</summary>
+/// <summary>A log callback and its user data.</summary>
 public unsafe struct PrismLogHandler {
 	/// <summary>The C field <c>fn</c>.</summary>
 	public delegate* unmanaged[Cdecl]<void*, LogLevel, byte*, byte*, void> Callback;
@@ -102,7 +102,7 @@ public unsafe struct PrismLogHandler {
 	public void* Userdata;
 }
 
-/// <summary><c>PrismPluginServices</c>, what prism offers a plugin backend's instances.</summary>
+/// <summary>What prism offers a plugin backend's instances.</summary>
 public unsafe struct PrismPluginServices {
 	/// <summary>The C field <c>struct_size</c>.</summary>
 	public uint StructSize;
@@ -112,7 +112,7 @@ public unsafe struct PrismPluginServices {
 	public delegate* unmanaged[Cdecl]<PrismPluginServices*, LogLevel, byte*, void> Log;
 }
 
-/// <summary><c>PrismPluginInstanceContext</c>, what a plugin backend's instance receives when it is created.</summary>
+/// <summary>What a plugin backend's instance receives when it is created.</summary>
 public unsafe struct PrismPluginInstanceContext {
 	/// <summary>The C field <c>struct_size</c>.</summary>
 	public uint StructSize;
@@ -124,7 +124,7 @@ public unsafe struct PrismPluginInstanceContext {
 	public void* Userdata;
 }
 
-/// <summary><c>PrismPluginHost</c>, what prism offers a plugin library while it is queried.</summary>
+/// <summary>What prism offers a plugin library while it is queried.</summary>
 public unsafe struct PrismPluginHost {
 	/// <summary>The C field <c>abi_version</c>.</summary>
 	public ulong AbiVersion;
@@ -136,7 +136,7 @@ public unsafe struct PrismPluginHost {
 	public delegate* unmanaged[Cdecl]<PrismPluginHost*, LogLevel, byte*, void> Log;
 }
 
-/// <summary><c>PrismPluginBackend</c>, one backend a plugin library declares.</summary>
+/// <summary>One backend a plugin library declares.</summary>
 public unsafe struct PrismPluginBackend {
 	/// <summary>The C field <c>abi_version</c>.</summary>
 	public ulong AbiVersion;
