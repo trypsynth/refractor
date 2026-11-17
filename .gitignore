@@ -6,3 +6,8 @@ artifacts/
 *.user
 *.suo
 *.binlog
+
+# The docs site and the API pages DocFX generates for it
+docs/_site/
+docs/api/*.yml
+docs/api/.manifest
