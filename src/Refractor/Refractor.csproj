@@ -9,7 +9,8 @@
 		<RootNamespace>Refractor</RootNamespace>
 		<IsAotCompatible>true</IsAotCompatible>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
-		<NoWarn>$(NoWarn);CS1591</NoWarn>
+		<!-- Every public member is documented, for IntelliSense and the docs site, and a new one has to be too. -->
+		<WarningsAsErrors>$(WarningsAsErrors);CS1591</WarningsAsErrors>
 	</PropertyGroup>
 
 	<PropertyGroup>

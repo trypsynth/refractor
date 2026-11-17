@@ -22,6 +22,7 @@ public sealed unsafe class Backend : IDisposable {
 
 	internal Backend(PrismBackend* backend) => _handle = new BackendHandle(backend);
 
+	/// <summary>The backend's name, such as "NVDA" or "SAPI".</summary>
 	public string Name {
 		get {
 			if (_name is not null) return _name;
@@ -36,6 +37,7 @@ public sealed unsafe class Backend : IDisposable {
 		return (BackendFeatures)PrismNative.BackendGetFeatures(Native(lease));
 	}
 
+	/// <summary>Whether the backend has every one of <paramref name="features"/>.</summary>
 	public bool Supports(BackendFeatures features) => (GetFeatures() & features) == features;
 
 	/// <summary>Returns false when it was already initialized, which is not an error.</summary>
@@ -74,6 +76,7 @@ public sealed unsafe class Backend : IDisposable {
 		}
 	}
 
+	/// <summary>Shows text on the user's braille display.</summary>
 	public void Braille(string text) {
 		using Lease lease = Borrow();
 		fixed (byte* native = Utf8.Encode(text, nameof(text))) PrismException.ThrowIfFailed(PrismNative.BackendBraille(Native(lease), native));
@@ -91,16 +94,19 @@ public sealed unsafe class Backend : IDisposable {
 		PrismException.ThrowIfFailed(PrismNative.BackendStop(Native(lease)));
 	}
 
+	/// <summary>Pauses speech where it is. <see cref="Resume"/> carries on from there.</summary>
 	public void Pause() {
 		using Lease lease = Borrow();
 		PrismException.ThrowIfFailed(PrismNative.BackendPause(Native(lease)));
 	}
 
+	/// <summary>Carries on with speech paused by <see cref="Pause"/>.</summary>
 	public void Resume() {
 		using Lease lease = Borrow();
 		PrismException.ThrowIfFailed(PrismNative.BackendResume(Native(lease)));
 	}
 
+	/// <summary>Whether speech is in progress.</summary>
 	public bool IsSpeaking {
 		get {
 			using Lease lease = Borrow();
@@ -158,6 +164,7 @@ public sealed unsafe class Backend : IDisposable {
 		PrismException.ThrowIfFailed(PrismNative.BackendRefreshVoices(Native(lease)));
 	}
 
+	/// <summary>How many voices the backend has.</summary>
 	public int VoiceCount {
 		get {
 			using Lease lease = Borrow();
@@ -167,6 +174,7 @@ public sealed unsafe class Backend : IDisposable {
 		}
 	}
 
+	/// <summary>The name of the voice at <paramref name="index"/>.</summary>
 	public string GetVoiceName(int index) {
 		using Lease lease = Borrow();
 		byte* name;
@@ -206,6 +214,7 @@ public sealed unsafe class Backend : IDisposable {
 		return voices;
 	}
 
+	/// <summary>How many channels <see cref="SpeakToMemory"/> delivers.</summary>
 	public int Channels {
 		get {
 			using Lease lease = Borrow();
@@ -215,6 +224,7 @@ public sealed unsafe class Backend : IDisposable {
 		}
 	}
 
+	/// <summary>The sample rate <see cref="SpeakToMemory"/> delivers, in hertz.</summary>
 	public int SampleRate {
 		get {
 			using Lease lease = Borrow();

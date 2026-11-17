@@ -18,6 +18,7 @@ public sealed unsafe class Registry : IDisposable {
 		return new(PrismNative.RegistryRetain((PrismRegistry*)lease.Pointer));
 	}
 
+	/// <summary>Releases this reference. Contexts bound to the registry keep their own.</summary>
 	public void Dispose() => _handle.Dispose();
 
 	internal Lease Borrow() => new(_handle, nameof(Registry));

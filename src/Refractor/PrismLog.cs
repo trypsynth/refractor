@@ -6,11 +6,13 @@ namespace Refractor;
 
 /// <summary>One of prism's log messages.</summary>
 public sealed class LogMessageEventArgs(LogLevel level, string source, string message) : EventArgs {
+	/// <summary>How severe the message is.</summary>
 	public LogLevel Level { get; } = level;
 
 	/// <summary>What wrote it, such as a backend's name, or "Refractor".</summary>
 	public string Source { get; } = source;
 
+	/// <summary>The message itself.</summary>
 	public string Message { get; } = message;
 }
 

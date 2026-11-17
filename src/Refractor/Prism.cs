@@ -11,6 +11,7 @@ namespace Refractor;
 public sealed unsafe class Prism : IDisposable {
 	private readonly ContextHandle _handle;
 
+	/// <summary>Creates a context, with prism's built-in backends unless <paramref name="options"/> binds a <see cref="Registry"/>.</summary>
 	public Prism(PrismOptions? options = null) {
 		PrismConfig config = PrismNative.ConfigInit();
 		GCHandle callbacks = default;
@@ -31,6 +32,7 @@ public sealed unsafe class Prism : IDisposable {
 		_handle = new ContextHandle(context, callbacks);
 	}
 
+	/// <summary>The version of prism Refractor is running, as major, minor and patch.</summary>
 	public static Version Version {
 		get {
 			uint packed = PrismNative.Version();
@@ -41,8 +43,10 @@ public sealed unsafe class Prism : IDisposable {
 	/// <summary>The full version prism was built as, which can carry more than <see cref="Version"/>.</summary>
 	public static string VersionString => Utf8.Decode(PrismNative.VersionString()) ?? string.Empty;
 
+	/// <summary>Whether <see cref="PrismOptions.AutoPowerManagement"/> works on this system.</summary>
 	public static bool IsAutoPowerManagementSupported => PrismNative.AvailabilityAutoPowerSupported();
 
+	/// <summary>prism's description of an error, such as "Backend not available".</summary>
 	public static string GetErrorMessage(PrismError error) => Utf8.Decode(PrismNative.ErrorString(error)) ?? error.ToString();
 
 	/// <summary>Every registered backend, highest priority first. Registered is not the same as usable.</summary>
@@ -73,6 +77,7 @@ public sealed unsafe class Prism : IDisposable {
 		return found.HasValue;
 	}
 
+	/// <summary>The name of a registered backend, or null when the id is not registered.</summary>
 	public string? GetBackendName(BackendId id) {
 		using Lease lease = Borrow();
 		return Utf8.Decode(PrismNative.RegistryName(Native(lease), id.Value));
@@ -128,6 +133,7 @@ public sealed unsafe class Prism : IDisposable {
 		return Backend.Wrap(PrismNative.RegistryAcquireBest(Native(lease)));
 	}
 
+	/// <summary>Stops availability polling until <see cref="ResumeAvailabilityPolling"/>.</summary>
 	public void PauseAvailabilityPolling() {
 		using Lease lease = Borrow();
 		PrismNative.AvailabilityPollPause(Native(lease));
@@ -139,6 +145,7 @@ public sealed unsafe class Prism : IDisposable {
 		PrismNative.AvailabilityPollResume(Native(lease));
 	}
 
+	/// <summary>Shuts the context down, waiting for availability polling to stop. Backends it handed out keep working.</summary>
 	public void Dispose() => _handle.Dispose();
 
 	private Lease Borrow() => new(_handle, nameof(Prism));

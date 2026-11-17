@@ -7,6 +7,7 @@ namespace Refractor;
 public sealed unsafe class RegistryBuilder : IDisposable {
 	private readonly RegistryBuilderHandle _handle;
 
+	/// <summary>Starts a builder holding every built-in backend.</summary>
 	public RegistryBuilder() {
 		PrismRegistryBuilder* builder = PrismNative.RegistryBuilderNew();
 		if (builder is null) throw new OutOfMemoryException("prism could not create a registry builder.");
@@ -59,6 +60,7 @@ public sealed unsafe class RegistryBuilder : IDisposable {
 		return registry is not null ? new Registry(registry) : throw new InvalidOperationException("The builder was already frozen, or prism ran out of memory.");
 	}
 
+	/// <summary>Frees the builder, and any registrations not moved into a registry.</summary>
 	public void Dispose() => _handle.Dispose();
 
 	private Lease Borrow() => new(_handle, nameof(RegistryBuilder));
