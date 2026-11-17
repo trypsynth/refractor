@@ -62,7 +62,7 @@ sealed class ConsoleBackend : CustomBackend {
 
 ```csharp
 PrismLog.SetLevel(LogLevel.Warning);
-PrismLog.SetHandler((level, source, message) => Console.Error.WriteLine($"{level} {source}: {message}"));
+PrismLog.MessageLogged += (_, e) => Console.Error.WriteLine($"{e.Level} {e.Source}: {e.Message}");
 ```
 
 Setting the `PRISM_LOG` environment variable to `warn`, `debug` and so on makes prism log to standard error without any code.

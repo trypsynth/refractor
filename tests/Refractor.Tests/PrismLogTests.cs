@@ -13,7 +13,7 @@ public class PrismLogTests : IDisposable {
 
 	public PrismLogTests() {
 		_previousLevel = PrismLog.SetLevel(LogLevel.Trace);
-		PrismLog.SetHandler((level, source, message) => _received.Enqueue((level, source, message)));
+		PrismLog.MessageLogged += Record;
 	}
 
 	[Fact]
@@ -39,22 +39,41 @@ public class PrismLogTests : IDisposable {
 	}
 
 	[Fact]
-	public void ReplacingTheHandlerMovesDeliveryOver() {
+	public void EveryHandlerHearsEachMessage() {
 		ConcurrentQueue<string> second = new();
-		PrismLog.SetHandler((_, source, message) => {
-			if (source == "Tests") second.Enqueue(message);
-		});
-		PrismLog.Write(LogLevel.Info, "Tests", "To the new one");
-		PrismLog.Flush();
-		Assert.Equal(["To the new one"], second);
-		Assert.Empty(Received("Tests"));
+		void Also(object? sender, LogMessageEventArgs e) {
+			if (e.Source == "Tests") second.Enqueue(e.Message);
+		}
+		PrismLog.MessageLogged += Also;
+		try {
+			PrismLog.Write(LogLevel.Info, "Tests", "To both");
+			PrismLog.Flush();
+		} finally {
+			PrismLog.MessageLogged -= Also;
+		}
+		Assert.Equal(["To both"], second);
+		Assert.Equal(["To both"], Received("Tests").Select(entry => entry.Message));
 	}
 
 	[Fact]
-	public void ANullHandlerDiscardsMessages() {
-		PrismLog.SetHandler(null);
+	public void AThrowingHandlerDoesNotStopTheOthers() {
+		static void Throws(object? sender, LogMessageEventArgs e) => throw new InvalidOperationException("Handler fell over");
+		PrismLog.MessageLogged += Throws;
+		try {
+			PrismLog.Write(LogLevel.Info, "Tests", "Still delivered");
+			PrismLog.Flush();
+		} finally {
+			PrismLog.MessageLogged -= Throws;
+		}
+		Assert.Equal(["Still delivered"], Received("Tests").Select(entry => entry.Message));
+	}
+
+	[Fact]
+	public void ARemovedHandlerHearsNothing() {
+		PrismLog.MessageLogged -= Record;
 		PrismLog.Write(LogLevel.Error, "Tests", "Nobody hears this");
 		PrismLog.Flush();
+		PrismLog.MessageLogged += Record;
 		Assert.Empty(Received("Tests"));
 	}
 
@@ -72,9 +91,11 @@ public class PrismLogTests : IDisposable {
 	}
 
 	public void Dispose() {
-		PrismLog.SetHandler(null);
+		PrismLog.MessageLogged -= Record;
 		PrismLog.SetLevel(_previousLevel);
 	}
+
+	private void Record(object? sender, LogMessageEventArgs e) => _received.Enqueue((e.Level, e.Source, e.Message));
 
 	private (LogLevel Level, string Source, string Message)[] Received(string source) => [.. _received.Where(entry => entry.Source == source)];
 }
