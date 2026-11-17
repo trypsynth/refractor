@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net10.0</TargetFramework>
+		<RootNamespace>SpeakVisualBasic</RootNamespace>
+		<IsPackable>false</IsPackable>
+		<RefractorSampleRuntime Condition="'$(RefractorSampleRuntime)' == ''">win-x64</RefractorSampleRuntime>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\src\Refractor\Refractor.csproj" />
+	</ItemGroup>
+
+	<!-- A package reference brings prism along on its own. A project reference has to copy it. -->
+	<ItemGroup>
+		<None Include="$(RefractorNativeRoot)/$(RefractorSampleRuntime)/shared/bin/*.dll;$(RefractorNativeRoot)/$(RefractorSampleRuntime)/shared/lib/*.dylib;$(RefractorNativeRoot)/$(RefractorSampleRuntime)/shared/lib/*.so" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+	</ItemGroup>
+
+</Project>
