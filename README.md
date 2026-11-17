@@ -67,6 +67,26 @@ PrismLog.MessageLogged += (_, e) => Console.Error.WriteLine($"{e.Level} {e.Sourc
 
 Setting the `PRISM_LOG` environment variable to `warn`, `debug` and so on makes prism log to standard error without any code.
 
+## F# and Visual Basic
+
+Refractor works the same from F# and Visual Basic, including custom backends. `TryFindBackend` reads naturally in both:
+
+```fsharp
+use prism = new Prism()
+match prism.TryFindBackend "NVDA" with
+| true, id -> printfn "NVDA is %O" id
+| false, _ -> printfn "NVDA is not registered"
+```
+
+```vb
+Using prism As New Prism(), backend = prism.CreateBest()
+    AddHandler PrismLog.MessageLogged, Sub(sender, e) Console.Error.WriteLine(e.Message)
+    backend.Speak("Hello from Visual Basic!")
+End Using
+```
+
+`samples/SpeakFSharp` and `samples/SpeakVisualBasic` are complete programs.
+
 ## Native AOT
 
 With `PublishAot` on, Refractor links prism statically. The published executable needs nothing beside it. Set `RefractorStaticLink` to `false` to ship prism next to the executable instead, as `prism.dll` on Windows, `libprism.dylib` on macOS or `libprism.so` on Linux.
