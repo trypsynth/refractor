@@ -87,6 +87,8 @@ An iOS app cannot load a library of its own, so Refractor always links prism int
 
 On macOS, VoiceOver speech works without any setup. To use VoiceOver's older automation path, an app bundle must declare `NSAppleEventsUsageDescription` in its `Info.plist`. A notarized app also needs the `com.apple.security.automation.apple-events` entitlement. Sandboxed apps cannot use this path.
 
+On macOS and iOS, VoiceOver and AVSpeech do their work on the main thread, so a call from another thread waits for the main thread to run its run loop, as it always does in an app with a user interface. A console app has no run loop, so it should make every backend call from its main thread. In an `async Main`, that means before the first `await`, since the code after it usually continues on another thread. If the main thread is blocked waiting for such a call, the call never returns.
+
 On Linux, prism needs `libdbus-1`, which every desktop distribution has. Speech goes through Speech Dispatcher, so it has to be installed with a voice, as it is on most desktops. Native AOT links with clang, so a Linux publish needs `clang` and `zlib1g-dev` or their equivalents.
 
 On Android, Refractor brings prism's library archive, which merges into your app's manifest and sets prism up when the app starts. Starting Android's speech engine waits for a callback on the main thread, so call `CreateBest`, `AcquireBest` and `Initialize` from another thread, or the app hangs for 10 seconds and the backend fails to start. Android always uses the shared prism, Native AOT or not.
