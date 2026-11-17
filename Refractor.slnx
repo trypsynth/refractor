@@ -9,5 +9,6 @@
 	</Folder>
 	<Folder Name="/samples/">
 		<Project Path="samples/Speak/Speak.csproj" />
+		<Project Path="samples/SpeakFSharp/SpeakFSharp.fsproj" />
 	</Folder>
 </Solution>
