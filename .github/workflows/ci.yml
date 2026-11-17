@@ -166,6 +166,14 @@ jobs:
       - name: Test from Visual Basic
         run: dotnet test tests/Refractor.Tests.VisualBasic -c Release --arch ${{ matrix.arch }} -p:RefractorTestRuntime=${{ matrix.runtime }} --blame-crash --blame-hang-timeout 5m
 
+      # The samples are the same on every platform, so building them once is enough.
+      - name: Build the F# and Visual Basic samples
+        if: matrix.runtime == 'win-x64'
+        run: |
+          dotnet build samples/SpeakFSharp -c Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet build samples/SpeakVisualBasic -c Release
+
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
