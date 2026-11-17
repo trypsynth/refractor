@@ -5,6 +5,7 @@
 	<Folder Name="/tests/">
 		<Project Path="tests/Refractor.Tests/Refractor.Tests.csproj" />
 		<Project Path="tests/Refractor.Tests.FSharp/Refractor.Tests.FSharp.fsproj" />
+		<Project Path="tests/Refractor.Tests.VisualBasic/Refractor.Tests.VisualBasic.vbproj" />
 	</Folder>
 	<Folder Name="/samples/">
 		<Project Path="samples/Speak/Speak.csproj" />

@@ -163,6 +163,9 @@ jobs:
       - name: Test from F#
         run: dotnet test tests/Refractor.Tests.FSharp -c Release --arch ${{ matrix.arch }} -p:RefractorTestRuntime=${{ matrix.runtime }} --blame-crash --blame-hang-timeout 5m
 
+      - name: Test from Visual Basic
+        run: dotnet test tests/Refractor.Tests.VisualBasic -c Release --arch ${{ matrix.arch }} -p:RefractorTestRuntime=${{ matrix.runtime }} --blame-crash --blame-hang-timeout 5m
+
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
